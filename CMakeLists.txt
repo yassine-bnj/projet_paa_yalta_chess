@@ -1,0 +1,40 @@
+cmake_minimum_required(VERSION 3.16)
+
+set(CMAKE_C_COMPILER "C:/mingw64/bin/gcc.exe")
+set(CMAKE_CXX_COMPILER "C:/mingw64/bin/g++.exe")
+
+project(YaltaChess)
+set(CMAKE_CXX_STANDARD 17)
+
+set(SFML_DIR "C:/SFML/lib/cmake/SFML")
+
+find_package(SFML 3 COMPONENTS Graphics Window System REQUIRED)
+
+add_executable(YaltaChess 
+    src/main.cpp
+    src/controller/GameController.cpp
+    src/controller/InputStrategy.cpp
+    src/model/Case.cpp
+    src/model/Piece.cpp
+    src/model/Plateau.cpp
+    src/model/PlateauGeometry.cpp
+    src/model/PlateauSpecialRules.cpp
+    src/model/PlateauCaptures.cpp
+    src/model/PlateauMoves.cpp
+    src/view/GameView.cpp
+)
+target_include_directories(YaltaChess PRIVATE include)
+target_link_libraries(YaltaChess SFML::Graphics SFML::Window SFML::System)
+
+add_executable(YaltaChessMoveProbe
+    tests/MoveProbe.cpp
+    src/model/Case.cpp
+    src/model/Piece.cpp
+    src/model/Plateau.cpp
+    src/model/PlateauGeometry.cpp
+    src/model/PlateauSpecialRules.cpp
+    src/model/PlateauCaptures.cpp
+    src/model/PlateauMoves.cpp
+)
+target_include_directories(YaltaChessMoveProbe PRIVATE include)
+target_link_libraries(YaltaChessMoveProbe SFML::Graphics SFML::Window SFML::System)
