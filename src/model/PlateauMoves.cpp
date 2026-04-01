@@ -2,6 +2,8 @@
 
 #include <algorithm>
 
+#include "MovementStrategy.hpp"
+
 void Plateau::recursiveMove(int xStart, int yStart, int xMove, int yMove, int side, std::vector<sf::Vector2i>& possibleMoves) const {
     int xDestination = xStart + xMove;
     int yDestination = yStart + yMove;
@@ -171,63 +173,40 @@ void Plateau::pawnMove2(int xStart, int yStart, int side, std::vector<sf::Vector
 
 std::vector<sf::Vector2i> Plateau::getLegalMovesForPiece(std::size_t index) const {
     const Piece& piece = pieces[index];
-    const int xStart = piece.getCell().x;
-    const int yStart = piece.getCell().y;
     const int side = sideOf(piece.getOwner());
 
-    const std::vector<sf::Vector2i> directions = {
-        {-1, -1}, {-1, 0}, {-1, 1}, {0, 1},
-        {1, 1}, {1, 0}, {1, -1}, {0, -1}
-    };
-
     std::vector<sf::Vector2i> moves;
+    static const RookMoveStrategy rookStrategy;
+    static const BishopMoveStrategy bishopStrategy;
+    static const QueenMoveStrategy queenStrategy;
+    static const KnightMoveStrategy knightStrategy;
+    static const KingMoveStrategy kingStrategy;
+    static const PawnMoveStrategy pawnStrategy;
+
+    const MoveStrategy* strategy = &pawnStrategy;
     switch (piece.getType()) {
         case PieceType::Rook:
-            recursiveMove(xStart, yStart, directions[5].x, directions[5].y, side, moves);
-            recursiveMove(xStart, yStart, directions[1].x, directions[1].y, side, moves);
-            recursiveMove(xStart, yStart, directions[3].x, directions[3].y, side, moves);
-            recursiveMove(xStart, yStart, directions[7].x, directions[7].y, side, moves);
+            strategy = &rookStrategy;
             break;
         case PieceType::Bishop:
-            recursiveMove(xStart, yStart, directions[0].x, directions[0].y, side, moves);
-            recursiveMove(xStart, yStart, directions[2].x, directions[2].y, side, moves);
-            recursiveMove(xStart, yStart, directions[4].x, directions[4].y, side, moves);
-            recursiveMove(xStart, yStart, directions[6].x, directions[6].y, side, moves);
+            strategy = &bishopStrategy;
             break;
         case PieceType::Queen:
-            for (const auto& dir : directions) {
-                recursiveMove(xStart, yStart, dir.x, dir.y, side, moves);
-            }
+            strategy = &queenStrategy;
             break;
         case PieceType::Knight:
-            knightMove(xStart, yStart, directions[1].x, directions[1].y, side, moves, 0, false);
-            knightMove(xStart, yStart, directions[3].x, directions[3].y, side, moves, 0, false);
-            knightMove(xStart, yStart, directions[5].x, directions[5].y, side, moves, 0, false);
-            knightMove(xStart, yStart, directions[7].x, directions[7].y, side, moves, 0, false);
-
-            knightMove(xStart, yStart, directions[1].x, directions[1].y, side, moves, 0, true);
-            knightMove(xStart, yStart, directions[3].x, directions[3].y, side, moves, 0, true);
-            knightMove(xStart, yStart, directions[5].x, directions[5].y, side, moves, 0, true);
-            knightMove(xStart, yStart, directions[7].x, directions[7].y, side, moves, 0, true);
-
-            for (const auto& transition : knightCenterTransitions(xStart, yStart)) {
-                moves.push_back(transition);
-            }
+            strategy = &knightStrategy;
             break;
         case PieceType::King:
-            for (const auto& dir : directions) {
-                kingMove(xStart, yStart, dir.x, dir.y, side, moves);
-            }
+            strategy = &kingStrategy;
             break;
         case PieceType::Pawn:
         default:
-            if (piece.hasMoved()) {
-                pawnMove2(xStart, yStart, side, moves);
-            } else {
-                pawnMove(xStart, yStart, side, moves, 0);
-            }
+            strategy = &pawnStrategy;
             break;
     }
+
+    strategy->generate(*this, piece, side, moves);
 
     std::sort(moves.begin(), moves.end(), [](const sf::Vector2i& a, const sf::Vector2i& b) {
         if (a.x != b.x) {

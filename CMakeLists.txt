@@ -16,6 +16,7 @@ add_executable(YaltaChess
     src/controller/InputStrategy.cpp
     src/model/Case.cpp
     src/model/Piece.cpp
+    src/model/MovementStrategy.cpp
     src/model/Plateau.cpp
     src/model/PlateauGeometry.cpp
     src/model/PlateauSpecialRules.cpp
@@ -30,6 +31,7 @@ add_executable(YaltaChessMoveProbe
     tests/MoveProbe.cpp
     src/model/Case.cpp
     src/model/Piece.cpp
+    src/model/MovementStrategy.cpp
     src/model/Plateau.cpp
     src/model/PlateauGeometry.cpp
     src/model/PlateauSpecialRules.cpp

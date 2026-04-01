@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "Case.hpp"
+#include "MovementStrategy.hpp"
 #include "Piece.hpp"
 
 class Plateau {
@@ -18,6 +19,13 @@ public:
     void debugClearPieces();
     void debugAddPiece(PieceType type, PlayerId owner, sf::Vector2i cell, bool moved = false, bool enPassant = false);
     void debugSetCurrentPlayer(PlayerId owner);
+
+    friend class RookMoveStrategy;
+    friend class BishopMoveStrategy;
+    friend class QueenMoveStrategy;
+    friend class KnightMoveStrategy;
+    friend class KingMoveStrategy;
+    friend class PawnMoveStrategy;
 
 private:
     static constexpr int matrixCount = 6;
