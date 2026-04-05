@@ -1,6 +1,7 @@
 #include "Plateau.hpp"
 
 #include <cmath>
+#include <queue>
 #include <stdexcept>
 #include <vector>
 
@@ -13,6 +14,28 @@ sf::Vector2f midpoint(const sf::Vector2f& a, const sf::Vector2f& b) {
 
 sf::Vector2f lerp(const sf::Vector2f& a, const sf::Vector2f& b, float t) {
     return a + (b - a) * t;
+}
+
+bool nearlyEqual(float a, float b, float epsilon = 0.01f) {
+    return std::abs(a - b) <= epsilon;
+}
+
+bool samePoint(const sf::Vector2f& a, const sf::Vector2f& b) {
+    return nearlyEqual(a.x, b.x) && nearlyEqual(a.y, b.y);
+}
+
+bool shareEdge(const std::vector<sf::Vector2f>& a, const std::vector<sf::Vector2f>& b) {
+    int sharedVertices = 0;
+    for (const auto& pa : a) {
+        for (const auto& pb : b) {
+            if (samePoint(pa, pb)) {
+                ++sharedVertices;
+                break;
+            }
+        }
+    }
+
+    return sharedVertices >= 2;
 }
 
 std::vector<sf::Vector2f> createMatrixLines(
@@ -152,15 +175,56 @@ void Plateau::buildBoard() {
         return sf::Vector2i{x, y};
     };
 
+    std::vector<std::vector<sf::Vector2f>> allShapes;
+    allShapes.reserve(matrixCount * matrixCellCount);
+    std::vector<sf::Vector2i> allLegacyCoords;
+    allLegacyCoords.reserve(matrixCount * matrixCellCount);
+
     for (int matrixId = 0; matrixId < matrixCount; ++matrixId) {
         for (int index = 0; index < matrixCellCount; ++index) {
-            const bool invert = (matrixId % 2) == 1;
-            const bool odd = (index % 2) == 1;
-            const sf::Color color = (odd ^ invert) ? dark : light;
-
-            cells.emplace_back(matrices[matrixId][index], color);
-            cellCoords.push_back(indexToLegacy(index, matrixId + 1));
+            allShapes.push_back(matrices[matrixId][index]);
+            allLegacyCoords.push_back(indexToLegacy(index, matrixId + 1));
         }
+    }
+
+    const std::size_t n = allShapes.size();
+    std::vector<std::vector<std::size_t>> adjacency(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        for (std::size_t j = i + 1; j < n; ++j) {
+            if (shareEdge(allShapes[i], allShapes[j])) {
+                adjacency[i].push_back(j);
+                adjacency[j].push_back(i);
+            }
+        }
+    }
+
+    std::vector<int> parity(n, -1);
+    for (std::size_t start = 0; start < n; ++start) {
+        if (parity[start] != -1) {
+            continue;
+        }
+
+        std::queue<std::size_t> q;
+        parity[start] = 0;
+        q.push(start);
+
+        while (!q.empty()) {
+            const std::size_t current = q.front();
+            q.pop();
+
+            for (const std::size_t neighbor : adjacency[current]) {
+                if (parity[neighbor] == -1) {
+                    parity[neighbor] = 1 - parity[current];
+                    q.push(neighbor);
+                }
+            }
+        }
+    }
+
+    for (std::size_t i = 0; i < n; ++i) {
+        const sf::Color color = parity[i] == 0 ? light : dark;
+        cells.emplace_back(allShapes[i], color);
+        cellCoords.push_back(allLegacyCoords[i]);
     }
 }
 

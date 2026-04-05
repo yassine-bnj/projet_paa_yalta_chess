@@ -74,3 +74,16 @@ sf::Vector2f Case::getCenter() const {
 float Case::getRadius() const {
     return radius;
 }
+
+sf::Color Case::getFillColor() const {
+    return shape.getFillColor();
+}
+
+std::vector<sf::Vector2f> Case::getWorldPoints() const {
+    std::vector<sf::Vector2f> worldPoints;
+    worldPoints.reserve(shape.getPointCount());
+    for (std::size_t i = 0; i < shape.getPointCount(); ++i) {
+        worldPoints.push_back(shape.getTransform().transformPoint(shape.getPoint(i)));
+    }
+    return worldPoints;
+}

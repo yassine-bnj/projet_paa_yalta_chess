@@ -3,6 +3,33 @@
 #include <algorithm>
 #include <cmath>
 
+namespace {
+bool nearlyEqual(float a, float b, float epsilon = 0.01f) {
+    return std::abs(a - b) <= epsilon;
+}
+
+bool samePoint(const sf::Vector2f& a, const sf::Vector2f& b) {
+    return nearlyEqual(a.x, b.x) && nearlyEqual(a.y, b.y);
+}
+
+bool shareEdge(const std::vector<sf::Vector2f>& a, const std::vector<sf::Vector2f>& b) {
+    int sharedVertices = 0;
+    for (const auto& pa : a) {
+        for (const auto& pb : b) {
+            if (samePoint(pa, pb)) {
+                ++sharedVertices;
+                break;
+            }
+        }
+    }
+    return sharedVertices >= 2;
+}
+
+std::string colorToString(const sf::Color& c) {
+    return "(" + std::to_string(c.r) + "," + std::to_string(c.g) + "," + std::to_string(c.b) + ")";
+}
+}
+
 Plateau::Plateau()
     : currentPlayer(PlayerId::Red) {
     buildBoard();
@@ -171,6 +198,48 @@ std::string Plateau::debugPieceSummaryForCell(sf::Vector2i cell) const {
     }
 
     return owner + " " + type;
+}
+
+std::vector<std::string> Plateau::debugColorConflicts() const {
+    std::vector<std::string> conflicts;
+    if (cells.size() != cellCoords.size()) {
+        conflicts.push_back("Internal mismatch: cells.size != cellCoords.size");
+        return conflicts;
+    }
+
+    float meanY = 0.f;
+    for (const auto& cell : cells) {
+        meanY += cell.getCenter().y;
+    }
+    meanY /= static_cast<float>(cells.size());
+
+    for (std::size_t i = 0; i < cells.size(); ++i) {
+        const auto pi = cells[i].getWorldPoints();
+        const sf::Color ci = cells[i].getFillColor();
+
+        for (std::size_t j = i + 1; j < cells.size(); ++j) {
+            const auto pj = cells[j].getWorldPoints();
+            if (!shareEdge(pi, pj)) {
+                continue;
+            }
+
+            const sf::Color cj = cells[j].getFillColor();
+            if (ci.r == cj.r && ci.g == cj.g && ci.b == cj.b) {
+                const sf::Vector2f c1 = cells[i].getCenter();
+                const sf::Vector2f c2 = cells[j].getCenter();
+                const bool top = c1.y < meanY && c2.y < meanY;
+                const std::string tag = top ? "[TOP] " : "";
+                conflicts.push_back(
+                    tag + "same-color neighbors " +
+                    "A(" + std::to_string(cellCoords[i].x) + "," + std::to_string(cellCoords[i].y) + ") " +
+                    "B(" + std::to_string(cellCoords[j].x) + "," + std::to_string(cellCoords[j].y) + ") " +
+                    "color=" + colorToString(ci)
+                );
+            }
+        }
+    }
+
+    return conflicts;
 }
 
 void Plateau::clearSelection() {

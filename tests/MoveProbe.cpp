@@ -94,6 +94,19 @@ Plateau makeBoard(const std::function<void(Plateau&)>& setup) {
 int main() {
     std::cout << "=== Yalta move probe ===\n";
 
+    {
+        Plateau colorBoard;
+        const auto conflicts = colorBoard.debugColorConflicts();
+        if (conflicts.empty()) {
+            std::cout << "PASS Color alternation adjacency\n";
+        } else {
+            std::cout << "FAIL Color alternation adjacency | conflicts=" << conflicts.size() << '\n';
+            for (const auto& line : conflicts) {
+                std::cout << "INFO " << line << '\n';
+            }
+        }
+    }
+
     const Plateau enPassantBoard = makeBoard([](Plateau& board) {
         board.debugAddPiece(PieceType::Pawn, PlayerId::White, {1, 4}, true, false);
         board.debugAddPiece(PieceType::Pawn, PlayerId::Black, {1, 5}, true, true);

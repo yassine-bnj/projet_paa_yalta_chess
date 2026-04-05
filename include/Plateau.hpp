@@ -2,6 +2,7 @@
 
 #include <SFML/Graphics.hpp>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "Case.hpp"
@@ -16,6 +17,7 @@ public:
     void handleClick(sf::Vector2f position);
     std::vector<sf::Vector2i> debugLegalMovesForCell(sf::Vector2i cell) const;
     std::string debugPieceSummaryForCell(sf::Vector2i cell) const;
+    std::vector<std::string> debugColorConflicts() const;
     void debugClearPieces();
     void debugAddPiece(PieceType type, PlayerId owner, sf::Vector2i cell, bool moved = false, bool enPassant = false);
     void debugSetCurrentPlayer(PlayerId owner);

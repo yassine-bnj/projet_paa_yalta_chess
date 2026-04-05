@@ -12,6 +12,8 @@ public:
     bool contains(sf::Vector2f point) const;
     sf::Vector2f getCenter() const;
     float getRadius() const;
+    sf::Color getFillColor() const;
+    std::vector<sf::Vector2f> getWorldPoints() const;
 
 private:
     sf::ConvexShape shape;
