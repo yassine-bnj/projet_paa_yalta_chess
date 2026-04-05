@@ -36,6 +36,28 @@ Plateau::Plateau()
     buildPieces();
 }
 
+void Plateau::addObserver(IPlateauObserver* observer) {
+    if (observer == nullptr) {
+        return;
+    }
+
+    if (std::find(observers.begin(), observers.end(), observer) == observers.end()) {
+        observers.push_back(observer);
+    }
+}
+
+void Plateau::removeObserver(IPlateauObserver* observer) {
+    observers.erase(std::remove(observers.begin(), observers.end(), observer), observers.end());
+}
+
+void Plateau::notifyObservers(const PlateauEvent& event) {
+    for (auto* observer : observers) {
+        if (observer != nullptr) {
+            observer->onPlateauEvent(event);
+        }
+    }
+}
+
 void Plateau::buildPieces() {
     pieces.clear();
 
@@ -245,11 +267,13 @@ std::vector<std::string> Plateau::debugColorConflicts() const {
 void Plateau::clearSelection() {
     selectedPieceIndex.reset();
     legalMoves.clear();
+    notifyObservers(PlateauEvent{PlateauEventType::SelectionChanged, std::nullopt, std::nullopt, currentPlayer});
 }
 
 void Plateau::selectPiece(std::size_t index) {
     selectedPieceIndex = index;
     legalMoves = getLegalMovesForPiece(index);
+    notifyObservers(PlateauEvent{PlateauEventType::SelectionChanged, pieces[index].getCell(), std::nullopt, currentPlayer});
 }
 
 bool Plateau::tryMoveSelectedPiece(sf::Vector2i destination) {
@@ -278,6 +302,8 @@ bool Plateau::tryMoveSelectedPiece(sf::Vector2i destination) {
     if (pieces[selectedIndex].getType() == PieceType::Pawn && std::abs(destination.x - startCell.x) == 2) {
         pieces[selectedIndex].setEnPassantEligible(true);
     }
+
+    notifyObservers(PlateauEvent{PlateauEventType::MovePlayed, startCell, destination, currentPlayer});
 
     clearSelection();
     advanceTurn();
@@ -324,6 +350,7 @@ bool Plateau::isEnemy(sf::Vector2i cell, PlayerId owner) const {
 void Plateau::debugClearPieces() {
     pieces.clear();
     clearSelection();
+    notifyObservers(PlateauEvent{PlateauEventType::BoardReset, std::nullopt, std::nullopt, currentPlayer});
 }
 
 void Plateau::debugAddPiece(PieceType type, PlayerId owner, sf::Vector2i cell, bool moved, bool enPassant) {
@@ -336,6 +363,7 @@ void Plateau::debugAddPiece(PieceType type, PlayerId owner, sf::Vector2i cell, b
 
 void Plateau::debugSetCurrentPlayer(PlayerId owner) {
     currentPlayer = owner;
+    notifyObservers(PlateauEvent{PlateauEventType::TurnChanged, std::nullopt, std::nullopt, currentPlayer});
 }
 
 void Plateau::advanceTurn() {
@@ -350,4 +378,6 @@ void Plateau::advanceTurn() {
             currentPlayer = PlayerId::Red;
             break;
     }
+
+    notifyObservers(PlateauEvent{PlateauEventType::TurnChanged, std::nullopt, std::nullopt, currentPlayer});
 }

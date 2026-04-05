@@ -7,6 +7,7 @@
 
 #include "Case.hpp"
 #include "MovementStrategy.hpp"
+#include "PlateauObserver.hpp"
 #include "Piece.hpp"
 
 class Plateau {
@@ -18,6 +19,8 @@ public:
     std::vector<sf::Vector2i> debugLegalMovesForCell(sf::Vector2i cell) const;
     std::string debugPieceSummaryForCell(sf::Vector2i cell) const;
     std::vector<std::string> debugColorConflicts() const;
+    void addObserver(IPlateauObserver* observer);
+    void removeObserver(IPlateauObserver* observer);
     void debugClearPieces();
     void debugAddPiece(PieceType type, PlayerId owner, sf::Vector2i cell, bool moved = false, bool enPassant = false);
     void debugSetCurrentPlayer(PlayerId owner);
@@ -42,6 +45,7 @@ private:
     std::optional<std::size_t> selectedPieceIndex;
     std::vector<sf::Vector2i> legalMoves;
     PlayerId currentPlayer;
+    std::vector<IPlateauObserver*> observers;
 
     void buildBoard();
     void buildPieces();
@@ -70,6 +74,7 @@ private:
     sf::Vector2f cellCenter(sf::Vector2i cell) const;
     sf::ConvexShape makeHexMarker(sf::Vector2i cell, sf::Color fill, sf::Color outline, float outlineThickness) const;
     void advanceTurn();
+    void notifyObservers(const PlateauEvent& event);
 
     std::vector<sf::Vector2i> getLegalMovesForPiece(std::size_t index) const;
     void recursiveMove(int xStart, int yStart, int xMove, int yMove, int side, std::vector<sf::Vector2i>& possibleMoves) const;
