@@ -17,6 +17,7 @@ add_executable(YaltaChess
     src/model/Case.cpp
     src/model/Piece.cpp
     src/model/MovementStrategy.cpp
+    src/model/PlateauState.cpp
     src/model/Plateau.cpp
     src/model/PlateauGeometry.cpp
     src/model/PlateauSpecialRules.cpp
@@ -32,6 +33,7 @@ add_executable(YaltaChessMoveProbe
     src/model/Case.cpp
     src/model/Piece.cpp
     src/model/MovementStrategy.cpp
+    src/model/PlateauState.cpp
     src/model/Plateau.cpp
     src/model/PlateauGeometry.cpp
     src/model/PlateauSpecialRules.cpp

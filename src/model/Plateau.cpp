@@ -34,6 +34,7 @@ Plateau::Plateau()
     : currentPlayer(PlayerId::Red) {
     buildBoard();
     buildPieces();
+    setIdleState();
 }
 
 void Plateau::addObserver(IPlateauObserver* observer) {
@@ -142,29 +143,8 @@ void Plateau::draw(sf::RenderTarget& target) const {
 }
 
 void Plateau::handleClick(sf::Vector2f position) {
-    const sf::Vector2i cell = pixelToCell(position);
-    if (!isInsideBoard(cell)) {
-        clearSelection();
-        return;
-    }
-
-    if (selectedPieceIndex.has_value()) {
-        if (tryMoveSelectedPiece(cell)) {
-            return;
-        }
-
-        const auto clickedPiece = pieceAt(cell);
-        if (clickedPiece != pieces.size() && pieces[clickedPiece].getOwner() == currentPlayer) {
-            selectPiece(clickedPiece);
-        } else {
-            clearSelection();
-        }
-        return;
-    }
-
-    const auto clickedPiece = pieceAt(cell);
-    if (clickedPiece != pieces.size() && pieces[clickedPiece].getOwner() == currentPlayer) {
-        selectPiece(clickedPiece);
+    if (interactionState) {
+        interactionState->handleClick(*this, position);
     }
 }
 
@@ -278,6 +258,7 @@ void Plateau::selectPiece(std::size_t index) {
     selectedPieceIndex = index;
     legalMoves = getLegalMovesForPiece(index);
     notifyObservers(PlateauEvent{PlateauEventType::SelectionChanged, pieces[index].getCell(), std::nullopt, currentPlayer});
+    notifyObservers(PlateauEvent{PlateauEventType::PieceSelected, pieces[index].getCell(), std::nullopt, currentPlayer});
 }
 
 bool Plateau::tryMoveSelectedPiece(sf::Vector2i destination) {
@@ -285,14 +266,17 @@ bool Plateau::tryMoveSelectedPiece(sf::Vector2i destination) {
         return false;
     }
 
+    const std::size_t selectedIndex = *selectedPieceIndex;
+    const sf::Vector2i startCell = pieces[selectedIndex].getCell();
+
     if (std::find(legalMoves.begin(), legalMoves.end(), destination) == legalMoves.end()) {
+        notifyObservers(PlateauEvent{PlateauEventType::InvalidMove, startCell, destination, currentPlayer});
         return false;
     }
 
-    const std::size_t selectedIndex = *selectedPieceIndex;
-    const sf::Vector2i startCell = pieces[selectedIndex].getCell();
     const auto targetIndex = pieceAt(destination);
     if (targetIndex != pieces.size()) {
+        notifyObservers(PlateauEvent{PlateauEventType::CapturePlayed, startCell, destination, currentPlayer});
         pieces[targetIndex].setAlive(false);
     }
 
@@ -341,6 +325,11 @@ bool Plateau::isOccupied(sf::Vector2i cell) const {
     return pieceAt(cell) != pieces.size();
 }
 
+bool Plateau::isCurrentPlayerPieceAt(sf::Vector2i cell) const {
+    const auto index = pieceAt(cell);
+    return index != pieces.size() && pieces[index].getOwner() == currentPlayer;
+}
+
 bool Plateau::isFriendly(sf::Vector2i cell, PlayerId owner) const {
     const auto index = pieceAt(cell);
     return index != pieces.size() && pieces[index].getOwner() == owner;
@@ -384,4 +373,16 @@ void Plateau::advanceTurn() {
     }
 
     notifyObservers(PlateauEvent{PlateauEventType::TurnChanged, std::nullopt, std::nullopt, currentPlayer});
+}
+
+void Plateau::setIdleState() {
+    interactionState = std::make_unique<BoardIdleState>();
+}
+
+void Plateau::setPieceSelectedState() {
+    interactionState = std::make_unique<BoardPieceSelectedState>();
+}
+
+void Plateau::setGameOverState() {
+    interactionState = std::make_unique<BoardGameOverState>();
 }

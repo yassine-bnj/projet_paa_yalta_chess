@@ -1,6 +1,7 @@
 #pragma once
 
 #include <SFML/Graphics.hpp>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -8,6 +9,7 @@
 #include "Case.hpp"
 #include "MovementStrategy.hpp"
 #include "PlateauObserver.hpp"
+#include "PlateauState.hpp"
 #include "Piece.hpp"
 
 class Plateau {
@@ -32,6 +34,9 @@ public:
     friend class KnightMoveStrategy;
     friend class KingMoveStrategy;
     friend class PawnMoveStrategy;
+    friend class BoardIdleState;
+    friend class BoardPieceSelectedState;
+    friend class BoardGameOverState;
 
 private:
     static constexpr int matrixCount = 6;
@@ -47,6 +52,7 @@ private:
     std::vector<sf::Vector2i> legalMoves;
     PlayerId currentPlayer;
     std::vector<IPlateauObserver*> observers;
+    std::unique_ptr<PlateauState> interactionState;
 
     void buildBoard();
     void buildPieces();
@@ -58,6 +64,7 @@ private:
     bool isInsideBoard(sf::Vector2i cell) const;
     std::size_t pieceAt(sf::Vector2i cell) const;
     bool isOccupied(sf::Vector2i cell) const;
+    bool isCurrentPlayerPieceAt(sf::Vector2i cell) const;
     bool isFriendly(sf::Vector2i cell, PlayerId owner) const;
     bool isEnemy(sf::Vector2i cell, PlayerId owner) const;
     int sideOf(PlayerId owner) const;
@@ -76,6 +83,9 @@ private:
     sf::ConvexShape makeHexMarker(sf::Vector2i cell, sf::Color fill, sf::Color outline, float outlineThickness) const;
     void advanceTurn();
     void notifyObservers(const PlateauEvent& event);
+    void setIdleState();
+    void setPieceSelectedState();
+    void setGameOverState();
 
     std::vector<sf::Vector2i> getLegalMovesForPiece(std::size_t index) const;
     void recursiveMove(int xStart, int yStart, int xMove, int yMove, int side, std::vector<sf::Vector2i>& possibleMoves) const;

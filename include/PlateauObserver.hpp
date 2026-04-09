@@ -9,6 +9,9 @@
 enum class PlateauEventType {
     BoardReset,
     SelectionChanged,
+    PieceSelected,
+    InvalidMove,
+    CapturePlayed,
     MovePlayed,
     TurnChanged
 };
