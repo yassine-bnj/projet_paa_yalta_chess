@@ -168,6 +168,10 @@ void Plateau::handleClick(sf::Vector2f position) {
     }
 }
 
+PlayerId Plateau::getCurrentPlayer() const {
+    return currentPlayer;
+}
+
 std::vector<sf::Vector2i> Plateau::debugLegalMovesForCell(sf::Vector2i cell) const {
     const auto index = pieceAt(cell);
     if (index == pieces.size()) {
