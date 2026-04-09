@@ -2,6 +2,8 @@
 
 #include <SFML/Graphics.hpp>
 
+#include <optional>
+
 #include "Plateau.hpp"
 
 class GameView : public IPlateauObserver {
@@ -14,5 +16,9 @@ public:
 
 private:
     Plateau& plateau;
+    sf::Font hudFont;
+    std::optional<sf::Text> turnText;
     bool modelDirty = true;
+
+    void updateTurnText(PlayerId player);
 };
