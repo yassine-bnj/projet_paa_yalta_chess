@@ -58,6 +58,13 @@ bool containsMoves(const std::vector<sf::Vector2i>& actual, const std::vector<sf
     return true;
 }
 
+void runCheckCase(const std::string& name, const Plateau& plateau, PlayerId player, bool expected) {
+    const bool actual = plateau.isKingInCheck(player);
+    std::cout << ((actual == expected) ? "PASS " : "FAIL ") << name;
+    std::cout << " | expected=" << (expected ? "check" : "safe");
+    std::cout << " | got=" << (actual ? "check" : "safe") << '\n';
+}
+
 void runExactCase(const std::string& name, const Plateau& plateau, const sf::Vector2i& source, std::vector<sf::Vector2i> expected) {
     const std::string piece = plateau.debugPieceSummaryForCell(source);
     const std::vector<sf::Vector2i> moves = plateau.debugLegalMovesForCell(source);
@@ -172,6 +179,24 @@ int main() {
         board.debugAddPiece(PieceType::Pawn, PlayerId::Black, {5, 8}, true, false);
     });
     runContainsCase("Sextant edge capture 6->4", sextantEdgeCaptureB, {7, 8}, {{5, 8}});
+
+    const Plateau checkByBishopCenter = makeBoard([](Plateau& board) {
+        board.debugAddPiece(PieceType::King, PlayerId::White, {3, 4}, true, false);
+        board.debugAddPiece(PieceType::Bishop, PlayerId::Black, {8, 8}, true, false);
+    });
+    runCheckCase("Check detection bishop center", checkByBishopCenter, PlayerId::White, true);
+
+    const Plateau blockedRookCheck = makeBoard([](Plateau& board) {
+        board.debugAddPiece(PieceType::King, PlayerId::White, {5, 7}, true, false);
+        board.debugAddPiece(PieceType::Pawn, PlayerId::White, {7, 7}, true, false);
+        board.debugAddPiece(PieceType::Rook, PlayerId::Black, {8, 7}, true, false);
+    });
+    runCheckCase("Check detection blocked rook", blockedRookCheck, PlayerId::White, false);
+
+    const Plateau noKingBoard = makeBoard([](Plateau& board) {
+        board.debugAddPiece(PieceType::Rook, PlayerId::Black, {8, 7}, true, false);
+    });
+    runCheckCase("Check detection missing king", noKingBoard, PlayerId::White, false);
 
     std::cout << "--- Snapshot de validation ---\n";
     const Plateau snapshot = makeBoard([](Plateau& board) {

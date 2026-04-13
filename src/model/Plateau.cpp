@@ -152,6 +152,40 @@ PlayerId Plateau::getCurrentPlayer() const {
     return currentPlayer;
 }
 
+bool Plateau::isKingInCheck(PlayerId player) const {
+    std::optional<sf::Vector2i> kingCell;
+    for (const auto& piece : pieces) {
+        if (!piece.isAlive()) {
+            continue;
+        }
+        if (piece.getOwner() == player && piece.getType() == PieceType::King) {
+            kingCell = piece.getCell();
+            break;
+        }
+    }
+
+    if (!kingCell.has_value()) {
+        return false;
+    }
+
+    for (std::size_t i = 0; i < pieces.size(); ++i) {
+        const Piece& piece = pieces[i];
+        if (!piece.isAlive() || piece.getOwner() == player) {
+            continue;
+        }
+
+        const auto enemyMoves = getLegalMovesForPiece(i);
+        const auto it = std::find_if(enemyMoves.begin(), enemyMoves.end(), [&](const sf::Vector2i& move) {
+            return move.x == kingCell->x && move.y == kingCell->y;
+        });
+        if (it != enemyMoves.end()) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 std::vector<sf::Vector2i> Plateau::debugLegalMovesForCell(sf::Vector2i cell) const {
     const auto index = pieceAt(cell);
     if (index == pieces.size()) {

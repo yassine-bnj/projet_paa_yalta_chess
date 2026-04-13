@@ -19,6 +19,7 @@ public:
     void draw(sf::RenderTarget& target) const;
     void handleClick(sf::Vector2f position);
     PlayerId getCurrentPlayer() const;
+    bool isKingInCheck(PlayerId player) const;
     std::vector<sf::Vector2i> debugLegalMovesForCell(sf::Vector2i cell) const;
     std::string debugPieceSummaryForCell(sf::Vector2i cell) const;
     std::vector<std::string> debugColorConflicts() const;
