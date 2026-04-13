@@ -171,7 +171,7 @@ void Plateau::pawnMove2(int xStart, int yStart, int side, std::vector<sf::Vector
     }
 }
 
-std::vector<sf::Vector2i> Plateau::getLegalMovesForPiece(std::size_t index) const {
+std::vector<sf::Vector2i> Plateau::getPseudoLegalMovesForPiece(std::size_t index) const {
     const Piece& piece = pieces[index];
     const int side = sideOf(piece.getOwner());
 
@@ -223,4 +223,39 @@ std::vector<sf::Vector2i> Plateau::getLegalMovesForPiece(std::size_t index) cons
     }), moves.end());
 
     return moves;
+}
+
+std::vector<sf::Vector2i> Plateau::getLegalMovesForPiece(std::size_t index) const {
+    if (index >= pieces.size() || !pieces[index].isAlive()) {
+        return {};
+    }
+
+    const Piece& movingPiece = pieces[index];
+    const PlayerId owner = movingPiece.getOwner();
+    const std::vector<sf::Vector2i> pseudoMoves = getPseudoLegalMovesForPiece(index);
+
+    std::vector<sf::Vector2i> legalMovesFiltered;
+    legalMovesFiltered.reserve(pseudoMoves.size());
+
+    Plateau* mutableBoard = const_cast<Plateau*>(this);
+    for (const auto& destination : pseudoMoves) {
+        const auto piecesBackup = mutableBoard->pieces;
+
+        const auto targetIndex = mutableBoard->pieceAt(destination);
+        if (targetIndex != mutableBoard->pieces.size()) {
+            mutableBoard->pieces[targetIndex].setAlive(false);
+        }
+
+        mutableBoard->pieces[index].setCell(destination, mutableBoard->cellCenter(destination));
+        mutableBoard->pieces[index].setHasMoved(true);
+
+        const bool leavesKingInCheck = mutableBoard->isKingInCheck(owner);
+        mutableBoard->pieces = piecesBackup;
+
+        if (!leavesKingInCheck) {
+            legalMovesFiltered.push_back(destination);
+        }
+    }
+
+    return legalMovesFiltered;
 }

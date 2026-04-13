@@ -198,6 +198,13 @@ int main() {
     });
     runCheckCase("Check detection missing king", noKingBoard, PlayerId::White, false);
 
+    const Plateau legalFilterUnderCheck = makeBoard([](Plateau& board) {
+        board.debugAddPiece(PieceType::King, PlayerId::White, {3, 4}, true, false);
+        board.debugAddPiece(PieceType::Knight, PlayerId::White, {0, 7}, true, false);
+        board.debugAddPiece(PieceType::Bishop, PlayerId::Black, {8, 8}, true, false);
+    });
+    runExactCase("Legal filtering under check (knight)", legalFilterUnderCheck, {0, 7}, {});
+
     std::cout << "--- Snapshot de validation ---\n";
     const Plateau snapshot = makeBoard([](Plateau& board) {
         board.debugAddPiece(PieceType::Pawn, PlayerId::White, {1, 4}, true, false);

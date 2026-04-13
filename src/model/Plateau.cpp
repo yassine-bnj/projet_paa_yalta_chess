@@ -174,7 +174,7 @@ bool Plateau::isKingInCheck(PlayerId player) const {
             continue;
         }
 
-        const auto enemyMoves = getLegalMovesForPiece(i);
+        const auto enemyMoves = getPseudoLegalMovesForPiece(i);
         const auto it = std::find_if(enemyMoves.begin(), enemyMoves.end(), [&](const sf::Vector2i& move) {
             return move.x == kingCell->x && move.y == kingCell->y;
         });

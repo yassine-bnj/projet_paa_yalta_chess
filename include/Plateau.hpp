@@ -88,6 +88,7 @@ private:
     void setPieceSelectedState();
     void setGameOverState();
 
+    std::vector<sf::Vector2i> getPseudoLegalMovesForPiece(std::size_t index) const;
     std::vector<sf::Vector2i> getLegalMovesForPiece(std::size_t index) const;
     void recursiveMove(int xStart, int yStart, int xMove, int yMove, int side, std::vector<sf::Vector2i>& possibleMoves) const;
     void knightMove(int xStart, int yStart, int xMove, int yMove, int side, std::vector<sf::Vector2i>& possibleMoves, int verification, bool methodTwo) const;
