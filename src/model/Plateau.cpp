@@ -186,6 +186,25 @@ bool Plateau::isKingInCheck(PlayerId player) const {
     return false;
 }
 
+bool Plateau::isCheckmate(PlayerId player) const {
+    if (!isKingInCheck(player)) {
+        return false;
+    }
+
+    for (std::size_t i = 0; i < pieces.size(); ++i) {
+        const Piece& piece = pieces[i];
+        if (!piece.isAlive() || piece.getOwner() != player) {
+            continue;
+        }
+
+        if (!getLegalMovesForPiece(i).empty()) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 std::vector<sf::Vector2i> Plateau::debugLegalMovesForCell(sf::Vector2i cell) const {
     const auto index = pieceAt(cell);
     if (index == pieces.size()) {

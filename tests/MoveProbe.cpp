@@ -65,6 +65,13 @@ void runCheckCase(const std::string& name, const Plateau& plateau, PlayerId play
     std::cout << " | got=" << (actual ? "check" : "safe") << '\n';
 }
 
+void runCheckmateCase(const std::string& name, const Plateau& plateau, PlayerId player, bool expected) {
+    const bool actual = plateau.isCheckmate(player);
+    std::cout << ((actual == expected) ? "PASS " : "FAIL ") << name;
+    std::cout << " | expected=" << (expected ? "mate" : "not-mate");
+    std::cout << " | got=" << (actual ? "mate" : "not-mate") << '\n';
+}
+
 void runExactCase(const std::string& name, const Plateau& plateau, const sf::Vector2i& source, std::vector<sf::Vector2i> expected) {
     const std::string piece = plateau.debugPieceSummaryForCell(source);
     const std::vector<sf::Vector2i> moves = plateau.debugLegalMovesForCell(source);
@@ -204,6 +211,17 @@ int main() {
         board.debugAddPiece(PieceType::Bishop, PlayerId::Black, {8, 8}, true, false);
     });
     runExactCase("Legal filtering under check (knight)", legalFilterUnderCheck, {0, 7}, {});
+
+    const Plateau checkmateCorner = makeBoard([](Plateau& board) {
+        board.debugAddPiece(PieceType::King, PlayerId::White, {0, 0}, true, false);
+        board.debugAddPiece(PieceType::Rook, PlayerId::Black, {0, 2}, true, false);
+        board.debugAddPiece(PieceType::Rook, PlayerId::Black, {2, 0}, true, false);
+        board.debugAddPiece(PieceType::Bishop, PlayerId::Black, {2, 2}, true, false);
+    });
+    runExactCase("Checkmate corner king legal moves", checkmateCorner, {0, 0}, {});
+    runCheckmateCase("Checkmate detection corner", checkmateCorner, PlayerId::White, true);
+
+    runCheckmateCase("Checkmate detection bishop center (escape exists)", checkByBishopCenter, PlayerId::White, false);
 
     std::cout << "--- Snapshot de validation ---\n";
     const Plateau snapshot = makeBoard([](Plateau& board) {
