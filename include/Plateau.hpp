@@ -1,6 +1,7 @@
 #pragma once
 
 #include <SFML/Graphics.hpp>
+#include <array>
 #include <memory>
 #include <optional>
 #include <string>
@@ -24,6 +25,7 @@ public:
     std::vector<sf::Vector2i> debugLegalMovesForCell(sf::Vector2i cell) const;
     std::string debugPieceSummaryForCell(sf::Vector2i cell) const;
     std::vector<std::string> debugColorConflicts() const;
+    bool debugIsCaptureMoveForPiece(std::size_t pieceIndex, sf::Vector2i destination) const;
     void addObserver(IPlateauObserver* observer);
     void removeObserver(IPlateauObserver* observer);
     void debugClearPieces();
@@ -53,6 +55,7 @@ private:
     std::optional<std::size_t> selectedPieceIndex;
     std::vector<sf::Vector2i> legalMoves;
     PlayerId currentPlayer;
+    std::array<bool, 3> eliminatedPlayers;
     std::vector<IPlateauObserver*> observers;
     std::unique_ptr<PlateauState> interactionState;
 
@@ -88,6 +91,15 @@ private:
     void setIdleState();
     void setPieceSelectedState();
     void setGameOverState();
+    bool isCaptureMoveForPiece(std::size_t pieceIndex, sf::Vector2i destination) const;
+    static std::size_t playerIndex(PlayerId player);
+    static PlayerId nextPlayer(PlayerId player);
+    bool isPlayerEliminated(PlayerId player) const;
+    bool hasAnyAlivePiece(PlayerId player) const;
+    bool hasAnyLegalMoveForPlayer(PlayerId player) const;
+    void eliminatePlayer(PlayerId player);
+    int alivePlayerCount() const;
+    std::optional<PlayerId> singleRemainingPlayer() const;
 
     std::vector<sf::Vector2i> getPseudoLegalMovesForPiece(std::size_t index) const;
     std::vector<sf::Vector2i> getLegalMovesForPiece(std::size_t index) const;

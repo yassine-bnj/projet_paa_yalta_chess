@@ -31,7 +31,8 @@ std::string colorToString(const sf::Color& c) {
 }
 
 Plateau::Plateau()
-    : currentPlayer(PlayerId::Red) {
+    : currentPlayer(PlayerId::Red),
+      eliminatedPlayers{false, false, false} {
     buildBoard();
     buildPieces();
     setIdleState();
@@ -126,8 +127,16 @@ void Plateau::draw(sf::RenderTarget& target) const {
         cell.draw(target);
     }
 
+    for (const auto& piece : pieces) {
+        piece.draw(target);
+    }
+
     for (const auto& move : legalMoves) {
-        const sf::ConvexShape overlay = makeHexMarker(move, sf::Color(80, 180, 120, 95), sf::Color::Transparent, 0.f);
+        sf::Color markerColor = sf::Color(80, 180, 120, 95);
+        if (selectedPieceIndex.has_value() && isCaptureMoveForPiece(*selectedPieceIndex, move)) {
+            markerColor = sf::Color(220, 70, 70, 120);
+        }
+        const sf::ConvexShape overlay = makeHexMarker(move, markerColor, sf::Color::Transparent, 0.f);
         target.draw(overlay);
     }
 
@@ -135,10 +144,6 @@ void Plateau::draw(sf::RenderTarget& target) const {
         const sf::Vector2i cell = pieces[*selectedPieceIndex].getCell();
         const sf::ConvexShape outline = makeHexMarker(cell, sf::Color::Transparent, sf::Color(255, 215, 0), 4.f);
         target.draw(outline);
-    }
-
-    for (const auto& piece : pieces) {
-        piece.draw(target);
     }
 }
 
@@ -187,6 +192,10 @@ bool Plateau::isKingInCheck(PlayerId player) const {
 }
 
 bool Plateau::isCheckmate(PlayerId player) const {
+    if (isPlayerEliminated(player)) {
+        return false;
+    }
+
     if (!isKingInCheck(player)) {
         return false;
     }
@@ -203,6 +212,132 @@ bool Plateau::isCheckmate(PlayerId player) const {
     }
 
     return true;
+}
+
+bool Plateau::isCaptureMoveForPiece(std::size_t pieceIndex, sf::Vector2i destination) const {
+    if (pieceIndex >= pieces.size() || !pieces[pieceIndex].isAlive()) {
+        return false;
+    }
+
+    const Piece& movingPiece = pieces[pieceIndex];
+    if (isEnemy(destination, movingPiece.getOwner())) {
+        return true;
+    }
+
+    if (movingPiece.getType() != PieceType::Pawn) {
+        return false;
+    }
+
+    const sf::Vector2i start = movingPiece.getCell();
+    if (destination.y == start.y || isOccupied(destination)) {
+        return false;
+    }
+
+    const sf::Vector2i adjacentCell{start.x, destination.y};
+    const std::size_t adjacentIndex = pieceAt(adjacentCell);
+    if (adjacentIndex == pieces.size()) {
+        return false;
+    }
+
+    const Piece& adjacentPiece = pieces[adjacentIndex];
+    return adjacentPiece.isAlive() &&
+           adjacentPiece.getType() == PieceType::Pawn &&
+           adjacentPiece.getOwner() != movingPiece.getOwner() &&
+           adjacentPiece.isEnPassantEligible();
+}
+
+std::size_t Plateau::playerIndex(PlayerId player) {
+    switch (player) {
+        case PlayerId::Red:
+            return 0;
+        case PlayerId::White:
+            return 1;
+        case PlayerId::Black:
+            return 2;
+    }
+
+    return 0;
+}
+
+PlayerId Plateau::nextPlayer(PlayerId player) {
+    switch (player) {
+        case PlayerId::Red:
+            return PlayerId::White;
+        case PlayerId::White:
+            return PlayerId::Black;
+        case PlayerId::Black:
+            return PlayerId::Red;
+    }
+
+    return PlayerId::Red;
+}
+
+bool Plateau::isPlayerEliminated(PlayerId player) const {
+    return eliminatedPlayers[playerIndex(player)];
+}
+
+bool Plateau::hasAnyAlivePiece(PlayerId player) const {
+    for (const auto& piece : pieces) {
+        if (piece.isAlive() && piece.getOwner() == player) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool Plateau::hasAnyLegalMoveForPlayer(PlayerId player) const {
+    for (std::size_t i = 0; i < pieces.size(); ++i) {
+        const Piece& piece = pieces[i];
+        if (!piece.isAlive() || piece.getOwner() != player) {
+            continue;
+        }
+
+        if (!getLegalMovesForPiece(i).empty()) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void Plateau::eliminatePlayer(PlayerId player) {
+    if (isPlayerEliminated(player)) {
+        return;
+    }
+
+    eliminatedPlayers[playerIndex(player)] = true;
+    for (auto& piece : pieces) {
+        if (piece.getOwner() == player) {
+            piece.setAlive(false);
+        }
+    }
+
+    clearSelection();
+}
+
+int Plateau::alivePlayerCount() const {
+    int count = 0;
+    for (PlayerId player : {PlayerId::Red, PlayerId::White, PlayerId::Black}) {
+        if (!isPlayerEliminated(player) && hasAnyAlivePiece(player)) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+std::optional<PlayerId> Plateau::singleRemainingPlayer() const {
+    std::optional<PlayerId> remaining;
+    for (PlayerId player : {PlayerId::Red, PlayerId::White, PlayerId::Black}) {
+        if (isPlayerEliminated(player) || !hasAnyAlivePiece(player)) {
+            continue;
+        }
+
+        if (remaining.has_value()) {
+            return std::nullopt;
+        }
+        remaining = player;
+    }
+
+    return remaining;
 }
 
 std::vector<sf::Vector2i> Plateau::debugLegalMovesForCell(sf::Vector2i cell) const {
@@ -299,6 +434,10 @@ std::vector<std::string> Plateau::debugColorConflicts() const {
     }
 
     return conflicts;
+}
+
+bool Plateau::debugIsCaptureMoveForPiece(std::size_t pieceIndex, sf::Vector2i destination) const {
+    return isCaptureMoveForPiece(pieceIndex, destination);
 }
 
 void Plateau::clearSelection() {
@@ -413,21 +552,45 @@ void Plateau::debugSetCurrentPlayer(PlayerId owner) {
 }
 
 void Plateau::advanceTurn() {
-    switch (currentPlayer) {
-        case PlayerId::Red:
-            currentPlayer = PlayerId::White;
-            break;
-        case PlayerId::White:
-            currentPlayer = PlayerId::Black;
-            break;
-        case PlayerId::Black:
-            currentPlayer = PlayerId::Red;
-            break;
+    currentPlayer = nextPlayer(currentPlayer);
+
+    for (int inspected = 0; inspected < 3; ++inspected) {
+        if (isPlayerEliminated(currentPlayer)) {
+            currentPlayer = nextPlayer(currentPlayer);
+            continue;
+        }
+
+        if (!hasAnyAlivePiece(currentPlayer)) {
+            eliminatePlayer(currentPlayer);
+            notifyObservers(PlateauEvent{PlateauEventType::PlayerEliminated, std::nullopt, std::nullopt, currentPlayer});
+            currentPlayer = nextPlayer(currentPlayer);
+            continue;
+        }
+
+        if (isCheckmate(currentPlayer)) {
+            notifyObservers(PlateauEvent{PlateauEventType::Checkmate, std::nullopt, std::nullopt, currentPlayer});
+            eliminatePlayer(currentPlayer);
+            notifyObservers(PlateauEvent{PlateauEventType::PlayerEliminated, std::nullopt, std::nullopt, currentPlayer});
+            currentPlayer = nextPlayer(currentPlayer);
+            continue;
+        }
+
+        if (!hasAnyLegalMoveForPlayer(currentPlayer)) {
+            eliminatePlayer(currentPlayer);
+            notifyObservers(PlateauEvent{PlateauEventType::PlayerEliminated, std::nullopt, std::nullopt, currentPlayer});
+            currentPlayer = nextPlayer(currentPlayer);
+            continue;
+        }
+
+        break;
     }
 
-    if (isCheckmate(currentPlayer)) {
-        notifyObservers(PlateauEvent{PlateauEventType::Checkmate, std::nullopt, std::nullopt, currentPlayer});
+    if (alivePlayerCount() <= 1) {
         setGameOverState();
+        const auto winner = singleRemainingPlayer();
+        if (winner.has_value()) {
+            notifyObservers(PlateauEvent{PlateauEventType::WinnerDeclared, std::nullopt, std::nullopt, *winner});
+        }
         return;
     }
 

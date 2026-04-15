@@ -14,7 +14,9 @@ enum class PlateauEventType {
     CapturePlayed,
     MovePlayed,
     TurnChanged,
-    Checkmate
+    Checkmate,
+    PlayerEliminated,
+    WinnerDeclared
 };
 
 struct PlateauEvent {

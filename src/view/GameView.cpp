@@ -32,12 +32,19 @@ GameView::~GameView() {
 
 void GameView::onPlateauEvent(const PlateauEvent& event) {
     if (event.type == PlateauEventType::TurnChanged) {
-        gameOver = false;
-        updateTurnText(event.currentPlayer);
+        if (!gameOver) {
+            updateTurnText(event.currentPlayer);
+            statusPrefix.clear();
+        }
     } else if (event.type == PlateauEventType::Checkmate) {
+        statusPrefix = "Mat contre " + playerToFrench(event.currentPlayer) + ". ";
+    } else if (event.type == PlateauEventType::PlayerEliminated) {
+        statusPrefix = "Joueur " + playerToFrench(event.currentPlayer) + " elimine. ";
+    } else if (event.type == PlateauEventType::WinnerDeclared) {
         gameOver = true;
+        updateTurnText(event.currentPlayer);
         if (turnText.has_value()) {
-            turnText->setString("Mat: joueur " + playerToFrench(event.currentPlayer) + " elimine");
+            turnText->setString("Victoire du joueur: " + playerToFrench(event.currentPlayer));
         }
     }
     modelDirty = true;
@@ -45,7 +52,7 @@ void GameView::onPlateauEvent(const PlateauEvent& event) {
 
 void GameView::updateTurnText(PlayerId player) {
     if (turnText.has_value()) {
-        turnText->setString("Tour du joueur: " + playerToFrench(player));
+        turnText->setString(statusPrefix + "Tour du joueur: " + playerToFrench(player));
     }
 }
 

@@ -3,6 +3,7 @@
 #include <SFML/Graphics.hpp>
 
 #include <optional>
+#include <string>
 
 #include "Plateau.hpp"
 
@@ -19,6 +20,7 @@ private:
     sf::Font hudFont;
     std::optional<sf::Text> turnText;
     bool gameOver = false;
+    std::string statusPrefix;
     bool modelDirty = true;
 
     void updateTurnText(PlayerId player);

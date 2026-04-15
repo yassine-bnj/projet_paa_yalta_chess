@@ -223,6 +223,20 @@ int main() {
 
     runCheckmateCase("Checkmate detection bishop center (escape exists)", checkByBishopCenter, PlayerId::White, false);
 
+    std::cout << "\n--- Capture highlight test ---\n";
+    const Plateau captureTest = makeBoard([](Plateau& board) {
+        board.debugAddPiece(PieceType::Pawn, PlayerId::White, {1, 2}, true, false);
+        board.debugAddPiece(PieceType::Pawn, PlayerId::Black, {2, 3}, true, false);
+        board.debugAddPiece(PieceType::Pawn, PlayerId::Black, {2, 1}, true, false);
+    });
+    const std::size_t pawnIndex = 0;
+    const std::vector<sf::Vector2i> captureLegalMoves = captureTest.debugLegalMovesForCell({1, 2});
+    std::cout << "White Pawn at (1,2) legal moves: " << movesToString(captureLegalMoves) << '\n';
+    for (const auto& move : captureLegalMoves) {
+        const bool highlightAsCapture = captureTest.debugIsCaptureMoveForPiece(pawnIndex, move);
+        std::cout << "  " << cellToString(move) << (highlightAsCapture ? " [HIGHLIGHT_RED]" : " [highlight_green]") << '\n';
+    }
+
     std::cout << "--- Snapshot de validation ---\n";
     const Plateau snapshot = makeBoard([](Plateau& board) {
         board.debugAddPiece(PieceType::Pawn, PlayerId::White, {1, 4}, true, false);
