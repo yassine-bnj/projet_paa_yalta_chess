@@ -13,7 +13,8 @@ enum class PlateauEventType {
     InvalidMove,
     CapturePlayed,
     MovePlayed,
-    TurnChanged
+    TurnChanged,
+    Checkmate
 };
 
 struct PlateauEvent {

@@ -32,7 +32,13 @@ GameView::~GameView() {
 
 void GameView::onPlateauEvent(const PlateauEvent& event) {
     if (event.type == PlateauEventType::TurnChanged) {
+        gameOver = false;
         updateTurnText(event.currentPlayer);
+    } else if (event.type == PlateauEventType::Checkmate) {
+        gameOver = true;
+        if (turnText.has_value()) {
+            turnText->setString("Mat: joueur " + playerToFrench(event.currentPlayer) + " elimine");
+        }
     }
     modelDirty = true;
 }
@@ -53,7 +59,11 @@ void GameView::render(sf::RenderWindow& window) {
 
     sf::RectangleShape hudBackground(sf::Vector2f(330.f, 48.f));
     hudBackground.setPosition(sf::Vector2f(12.f, 8.f));
-    hudBackground.setFillColor(sf::Color(20, 20, 25, 190));
+    if (gameOver) {
+        hudBackground.setFillColor(sf::Color(90, 25, 25, 205));
+    } else {
+        hudBackground.setFillColor(sf::Color(20, 20, 25, 190));
+    }
     hudBackground.setOutlineThickness(1.f);
     hudBackground.setOutlineColor(sf::Color(230, 230, 230, 60));
     if (turnText.has_value()) {

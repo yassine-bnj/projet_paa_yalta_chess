@@ -18,6 +18,7 @@ private:
     Plateau& plateau;
     sf::Font hudFont;
     std::optional<sf::Text> turnText;
+    bool gameOver = false;
     bool modelDirty = true;
 
     void updateTurnText(PlayerId player);

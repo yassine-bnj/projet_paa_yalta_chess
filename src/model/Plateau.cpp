@@ -425,6 +425,12 @@ void Plateau::advanceTurn() {
             break;
     }
 
+    if (isCheckmate(currentPlayer)) {
+        notifyObservers(PlateauEvent{PlateauEventType::Checkmate, std::nullopt, std::nullopt, currentPlayer});
+        setGameOverState();
+        return;
+    }
+
     notifyObservers(PlateauEvent{PlateauEventType::TurnChanged, std::nullopt, std::nullopt, currentPlayer});
 }
 
