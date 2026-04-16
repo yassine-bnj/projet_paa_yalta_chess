@@ -595,6 +595,10 @@ void Plateau::advanceTurn() {
     }
 
     notifyObservers(PlateauEvent{PlateauEventType::TurnChanged, std::nullopt, std::nullopt, currentPlayer});
+
+    if (isKingInCheck(currentPlayer)) {
+        notifyObservers(PlateauEvent{PlateauEventType::Check, std::nullopt, std::nullopt, currentPlayer});
+    }
 }
 
 void Plateau::setIdleState() {

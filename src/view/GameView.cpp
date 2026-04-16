@@ -1,5 +1,7 @@
 #include "GameView.hpp"
 
+#include <iostream>
+
 namespace {
 std::string playerToFrench(PlayerId player) {
     switch (player) {
@@ -31,22 +33,50 @@ GameView::~GameView() {
 }
 
 void GameView::onPlateauEvent(const PlateauEvent& event) {
-    if (event.type == PlateauEventType::TurnChanged) {
-        if (!gameOver) {
+    std::string eventMessage;
+    
+    switch (event.type) {
+        case PlateauEventType::TurnChanged:
+            if (!gameOver) {
+                updateTurnText(event.currentPlayer);
+                statusPrefix.clear();
+            }
+            break;
+        case PlateauEventType::Check:
+            eventMessage = "ATTENTION! " + playerToFrench(event.currentPlayer) + " est en ECHEC!";
+            break;
+        case PlateauEventType::Checkmate:
+            eventMessage = "ECHEC ET MAT contre " + playerToFrench(event.currentPlayer) + "!";
+            statusPrefix = "Mat: ";
+            break;
+        case PlateauEventType::PlayerEliminated:
+            eventMessage = "Joueur " + playerToFrench(event.currentPlayer) + " elimine du jeu.";
+            statusPrefix = "Eliminated: ";
+            break;
+        case PlateauEventType::WinnerDeclared:
+            gameOver = true;
             updateTurnText(event.currentPlayer);
-            statusPrefix.clear();
-        }
-    } else if (event.type == PlateauEventType::Checkmate) {
-        statusPrefix = "Mat contre " + playerToFrench(event.currentPlayer) + ". ";
-    } else if (event.type == PlateauEventType::PlayerEliminated) {
-        statusPrefix = "Joueur " + playerToFrench(event.currentPlayer) + " elimine. ";
-    } else if (event.type == PlateauEventType::WinnerDeclared) {
-        gameOver = true;
-        updateTurnText(event.currentPlayer);
-        if (turnText.has_value()) {
-            turnText->setString("Victoire du joueur: " + playerToFrench(event.currentPlayer));
-        }
+            eventMessage = "VICTOIRE! Joueur " + playerToFrench(event.currentPlayer) + " remporte la partie!";
+            if (turnText.has_value()) {
+                turnText->setString("Victoire du joueur: " + playerToFrench(event.currentPlayer));
+            }
+            break;
+        case PlateauEventType::CapturePlayed:
+            if (event.from.has_value() && event.to.has_value()) {
+                eventMessage = "Capture! " + playerToFrench(event.currentPlayer) + " prend une piece.";
+            }
+            break;
+        case PlateauEventType::PieceSelected:
+            eventMessage = playerToFrench(event.currentPlayer) + " selectionne une piece.";
+            break;
+        default:
+            break;
     }
+
+    if (!eventMessage.empty()) {
+        std::cout << "[" << playerToFrench(event.currentPlayer) << "] " << eventMessage << '\n';
+    }
+    
     modelDirty = true;
 }
 

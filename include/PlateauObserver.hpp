@@ -14,6 +14,7 @@ enum class PlateauEventType {
     CapturePlayed,
     MovePlayed,
     TurnChanged,
+    Check,
     Checkmate,
     PlayerEliminated,
     WinnerDeclared
