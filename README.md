@@ -16,6 +16,28 @@ Tests de regression mouvements:
 ./build/YaltaChessMoveProbe.exe
 ```
 
+## Configuration runtime IA
+
+Le jeu charge automatiquement un fichier `yalta_config.ini` a la racine du projet au lancement.
+
+Parametres disponibles:
+
+- `ai.red`: active/desactive l'IA du joueur Rouge.
+- `ai.white`: active/desactive l'IA du joueur Blanc.
+- `ai.black`: active/desactive l'IA du joueur Noir.
+- `ai.depth`: profondeur de recherche Min-Max/MaxN (bornee entre 1 et 6).
+- `ai.parallel_root`: active/desactive la parallelisation des coups a la racine.
+
+Exemple:
+
+```ini
+ai.red=true
+ai.white=false
+ai.black=true
+ai.depth=3
+ai.parallel_root=true
+```
+
 ## Diagramme des patterns
 
 ```mermaid
