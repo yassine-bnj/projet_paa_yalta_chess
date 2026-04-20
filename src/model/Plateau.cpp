@@ -38,6 +38,48 @@ Plateau::Plateau()
     setIdleState();
 }
 
+Plateau::Plateau(const Plateau& other)
+    : cells(other.cells),
+      cellCoords(other.cellCoords),
+      pieces(other.pieces),
+      selectedPieceIndex(other.selectedPieceIndex),
+      legalMoves(other.legalMoves),
+      currentPlayer(other.currentPlayer),
+      eliminatedPlayers(other.eliminatedPlayers) {
+    if (other.alivePlayerCount() <= 1) {
+        setGameOverState();
+    } else if (other.selectedPieceIndex.has_value()) {
+        setPieceSelectedState();
+    } else {
+        setIdleState();
+    }
+}
+
+Plateau& Plateau::operator=(const Plateau& other) {
+    if (this == &other) {
+        return *this;
+    }
+
+    cells = other.cells;
+    cellCoords = other.cellCoords;
+    pieces = other.pieces;
+    selectedPieceIndex = other.selectedPieceIndex;
+    legalMoves = other.legalMoves;
+    currentPlayer = other.currentPlayer;
+    eliminatedPlayers = other.eliminatedPlayers;
+    observers.clear();
+
+    if (other.alivePlayerCount() <= 1) {
+        setGameOverState();
+    } else if (other.selectedPieceIndex.has_value()) {
+        setPieceSelectedState();
+    } else {
+        setIdleState();
+    }
+
+    return *this;
+}
+
 void Plateau::addObserver(IPlateauObserver* observer) {
     if (observer == nullptr) {
         return;
@@ -155,6 +197,68 @@ void Plateau::handleClick(sf::Vector2f position) {
 
 PlayerId Plateau::getCurrentPlayer() const {
     return currentPlayer;
+}
+
+std::vector<Plateau::Move> Plateau::getLegalMovesForPlayer(PlayerId player) const {
+    std::vector<Move> moves;
+    for (std::size_t i = 0; i < pieces.size(); ++i) {
+        const Piece& piece = pieces[i];
+        if (!piece.isAlive() || piece.getOwner() != player) {
+            continue;
+        }
+
+        const auto destinations = getLegalMovesForPiece(i);
+        for (const auto& destination : destinations) {
+            moves.push_back(Move{piece.getCell(), destination});
+        }
+    }
+
+    return moves;
+}
+
+std::vector<Plateau::Move> Plateau::getLegalMovesForCurrentPlayer() const {
+    return getLegalMovesForPlayer(currentPlayer);
+}
+
+bool Plateau::applyMove(const Move& move) {
+    if (!isInsideBoard(move.from) || !isInsideBoard(move.to)) {
+        return false;
+    }
+
+    const std::size_t selectedIndex = pieceAt(move.from);
+    if (selectedIndex == pieces.size()) {
+        return false;
+    }
+
+    if (pieces[selectedIndex].getOwner() != currentPlayer) {
+        return false;
+    }
+
+    const auto destinations = getLegalMovesForPiece(selectedIndex);
+    const auto it = std::find(destinations.begin(), destinations.end(), move.to);
+    if (it == destinations.end()) {
+        return false;
+    }
+
+    selectedPieceIndex = selectedIndex;
+    legalMoves = destinations;
+    return tryMoveSelectedPiece(move.to);
+}
+
+bool Plateau::isGameOver() const {
+    return alivePlayerCount() <= 1;
+}
+
+std::optional<PlayerId> Plateau::getWinner() const {
+    return singleRemainingPlayer();
+}
+
+bool Plateau::isPlayerAlive(PlayerId player) const {
+    return !isPlayerEliminated(player) && hasAnyAlivePiece(player);
+}
+
+const std::vector<Piece>& Plateau::getPieces() const {
+    return pieces;
 }
 
 bool Plateau::isKingInCheck(PlayerId player) const {

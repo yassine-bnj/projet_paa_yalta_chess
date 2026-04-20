@@ -15,11 +15,27 @@
 
 class Plateau {
 public:
+    struct Move {
+        sf::Vector2i from;
+        sf::Vector2i to;
+    };
+
     Plateau();
+    Plateau(const Plateau& other);
+    Plateau& operator=(const Plateau& other);
+    Plateau(Plateau&&) noexcept = default;
+    Plateau& operator=(Plateau&&) noexcept = default;
 
     void draw(sf::RenderTarget& target) const;
     void handleClick(sf::Vector2f position);
     PlayerId getCurrentPlayer() const;
+    std::vector<Move> getLegalMovesForPlayer(PlayerId player) const;
+    std::vector<Move> getLegalMovesForCurrentPlayer() const;
+    bool applyMove(const Move& move);
+    bool isGameOver() const;
+    std::optional<PlayerId> getWinner() const;
+    bool isPlayerAlive(PlayerId player) const;
+    const std::vector<Piece>& getPieces() const;
     bool isKingInCheck(PlayerId player) const;
     bool isCheckmate(PlayerId player) const;
     std::vector<sf::Vector2i> debugLegalMovesForCell(sf::Vector2i cell) const;
