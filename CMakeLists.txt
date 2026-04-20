@@ -12,8 +12,10 @@ find_package(SFML 3 COMPONENTS Graphics Window System REQUIRED)
 
 add_executable(YaltaChess 
     src/main.cpp
+    src/ai/MinMaxAI.cpp
     src/controller/GameController.cpp
     src/controller/InputStrategy.cpp
+    src/controller/RuntimeConfig.cpp
     src/model/Case.cpp
     src/model/Piece.cpp
     src/model/MovementStrategy.cpp
@@ -30,6 +32,7 @@ target_link_libraries(YaltaChess SFML::Graphics SFML::Window SFML::System)
 
 add_executable(YaltaChessMoveProbe
     tests/MoveProbe.cpp
+    src/ai/MinMaxAI.cpp
     src/model/Case.cpp
     src/model/Piece.cpp
     src/model/MovementStrategy.cpp
@@ -42,3 +45,19 @@ add_executable(YaltaChessMoveProbe
 )
 target_include_directories(YaltaChessMoveProbe PRIVATE include)
 target_link_libraries(YaltaChessMoveProbe SFML::Graphics SFML::Window SFML::System)
+
+add_executable(YaltaChessAIProbe
+    tests/AIProbe.cpp
+    src/ai/MinMaxAI.cpp
+    src/model/Case.cpp
+    src/model/Piece.cpp
+    src/model/MovementStrategy.cpp
+    src/model/PlateauState.cpp
+    src/model/Plateau.cpp
+    src/model/PlateauGeometry.cpp
+    src/model/PlateauSpecialRules.cpp
+    src/model/PlateauCaptures.cpp
+    src/model/PlateauMoves.cpp
+)
+target_include_directories(YaltaChessAIProbe PRIVATE include)
+target_link_libraries(YaltaChessAIProbe SFML::Graphics SFML::Window SFML::System)
