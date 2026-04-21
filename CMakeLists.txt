@@ -25,6 +25,7 @@ add_executable(YaltaChess
     src/model/PlateauSpecialRules.cpp
     src/model/PlateauCaptures.cpp
     src/model/PlateauMoves.cpp
+    src/view/StartupMenu.cpp
     src/view/GameView.cpp
 )
 target_include_directories(YaltaChess PRIVATE include)
