@@ -245,6 +245,22 @@ int main() {
         board.debugAddPiece(PieceType::Bishop, PlayerId::White, {8, 8}, false, false);
     });
 
+    std::cout << "\n--- Promotion scenario ---\n";
+    Plateau promotionScenario = makeBoard([](Plateau& board) {
+        board.debugAddPiece(PieceType::Pawn, PlayerId::White, {7, 8}, true, false);
+    });
+    const auto promotionMoves = promotionScenario.debugLegalMovesForCell({7, 8});
+    std::cout << "INFO promotion legal moves: " << movesToString(promotionMoves) << '\n';
+    const bool promotionMoveOk = promotionScenario.applyMove({{7, 8}, {8, 8}});
+    std::cout << (promotionMoveOk ? "PASS " : "FAIL ") << "Promotion move to target square\n";
+    std::cout << "INFO pendingPromotion=" << (promotionScenario.hasPendingPromotion() ? "true" : "false")
+              << " cell=" << cellToString(promotionScenario.getPendingPromotionCell()) << '\n';
+    if (promotionScenario.hasPendingPromotion()) {
+        Plateau finalized = promotionScenario;
+        finalized.promotePawnAt(finalized.getPendingPromotionCell(), PieceType::Queen);
+        std::cout << "INFO promotion finalized on copied board\n";
+    }
+
     for (int x = 0; x < 12; ++x) {
         for (int y = 0; y < 12; ++y) {
             const sf::Vector2i cell{x, y};

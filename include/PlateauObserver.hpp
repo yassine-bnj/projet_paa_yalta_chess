@@ -12,6 +12,8 @@ enum class PlateauEventType {
     PieceSelected,
     InvalidMove,
     CapturePlayed,
+    PromotionRequested,
+    PromotionPlayed,
     MovePlayed,
     TurnChanged,
     Check,

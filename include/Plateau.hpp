@@ -32,6 +32,8 @@ public:
     std::vector<Move> getLegalMovesForPlayer(PlayerId player) const;
     std::vector<Move> getLegalMovesForCurrentPlayer() const;
     bool applyMove(const Move& move);
+    static void setDebugLoggingEnabled(bool enabled);
+    static bool isDebugLoggingEnabled();
     bool isGameOver() const;
     std::optional<PlayerId> getWinner() const;
     bool isPlayerAlive(PlayerId player) const;
@@ -47,6 +49,11 @@ public:
     void debugClearPieces();
     void debugAddPiece(PieceType type, PlayerId owner, sf::Vector2i cell, bool moved = false, bool enPassant = false);
     void debugSetCurrentPlayer(PlayerId owner);
+
+    // Promotion API: check and finalize pending promotion choices
+    bool hasPendingPromotion() const;
+    sf::Vector2i getPendingPromotionCell() const;
+    void promotePawnAt(sf::Vector2i cell, PieceType newType);
 
     friend class RookMoveStrategy;
     friend class BishopMoveStrategy;
@@ -80,6 +87,10 @@ private:
     void clearSelection();
     void selectPiece(std::size_t index);
     bool tryMoveSelectedPiece(sf::Vector2i destination);
+    void promotePawnIfNeeded(std::size_t pieceIndex);
+    bool pendingPromotion = false;
+    sf::Vector2i pendingPromotionCell{ -1, -1 };
+    PlayerId pendingPromotionOwner = PlayerId::Red;
 
     sf::Vector2i pixelToCell(sf::Vector2f position) const;
     bool isInsideBoard(sf::Vector2i cell) const;
@@ -113,6 +124,7 @@ private:
     bool isPlayerEliminated(PlayerId player) const;
     bool hasAnyAlivePiece(PlayerId player) const;
     bool hasAnyLegalMoveForPlayer(PlayerId player) const;
+    bool isPromotionZone(PlayerId owner, sf::Vector2i cell) const;
     void eliminatePlayer(PlayerId player);
     int alivePlayerCount() const;
     std::optional<PlayerId> singleRemainingPlayer() const;

@@ -2,8 +2,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 
 namespace {
+thread_local bool debugLoggingEnabled = true;
+
 bool nearlyEqual(float a, float b, float epsilon = 0.01f) {
     return std::abs(a - b) <= epsilon;
 }
@@ -28,6 +31,14 @@ bool shareEdge(const std::vector<sf::Vector2f>& a, const std::vector<sf::Vector2
 std::string colorToString(const sf::Color& c) {
     return "(" + std::to_string(c.r) + "," + std::to_string(c.g) + "," + std::to_string(c.b) + ")";
 }
+}
+
+void Plateau::setDebugLoggingEnabled(bool enabled) {
+    debugLoggingEnabled = enabled;
+}
+
+bool Plateau::isDebugLoggingEnabled() {
+    return debugLoggingEnabled;
 }
 
 Plateau::Plateau()
@@ -221,28 +232,52 @@ std::vector<Plateau::Move> Plateau::getLegalMovesForCurrentPlayer() const {
 }
 
 bool Plateau::applyMove(const Move& move) {
+    if (debugLoggingEnabled) {
+        std::cout << "[Plateau] applyMove: (" << move.from.x << "," << move.from.y << ") -> ("
+                  << move.to.x << "," << move.to.y << ")\n";
+    }
+    
     if (!isInsideBoard(move.from) || !isInsideBoard(move.to)) {
+        if (debugLoggingEnabled) {
+            std::cout << "[Plateau] ERREUR: position hors plateau\n";
+        }
         return false;
     }
 
     const std::size_t selectedIndex = pieceAt(move.from);
     if (selectedIndex == pieces.size()) {
+        if (debugLoggingEnabled) {
+            std::cout << "[Plateau] ERREUR: aucune piece a la position source\n";
+        }
         return false;
     }
 
     if (pieces[selectedIndex].getOwner() != currentPlayer) {
+        if (debugLoggingEnabled) {
+            std::cout << "[Plateau] ERREUR: piece n'appartient pas au joueur courant\n";
+        }
         return false;
     }
 
     const auto destinations = getLegalMovesForPiece(selectedIndex);
     const auto it = std::find(destinations.begin(), destinations.end(), move.to);
     if (it == destinations.end()) {
+        if (debugLoggingEnabled) {
+            std::cout << "[Plateau] ERREUR: destination non dans les coups legaux\n";
+        }
         return false;
     }
 
     selectedPieceIndex = selectedIndex;
     legalMoves = destinations;
-    return tryMoveSelectedPiece(move.to);
+    if (debugLoggingEnabled) {
+        std::cout << "[Plateau] applyMove appelle tryMoveSelectedPiece\n";
+    }
+    const bool result = tryMoveSelectedPiece(move.to);
+    if (debugLoggingEnabled) {
+        std::cout << "[Plateau] applyMove resultat: " << (result ? "success" : "fail") << "\n";
+    }
+    return result;
 }
 
 bool Plateau::isGameOver() const {
@@ -350,6 +385,55 @@ bool Plateau::isCaptureMoveForPiece(std::size_t pieceIndex, sf::Vector2i destina
            adjacentPiece.isEnPassantEligible();
 }
 
+bool Plateau::isPromotionZone(PlayerId owner, sf::Vector2i cell) const {
+    const int matrix = determineSubMatrix(cell.x, cell.y);
+    // Restrict promotion to the farthest ring matrix for each player to avoid
+    // promoting while still in the opponent's intermediate matrix.
+    switch (owner) {
+        case PlayerId::White:
+            return matrix == 6; // far-right bottom
+        case PlayerId::Red:
+            return matrix == 1; // far-left top
+        case PlayerId::Black:
+            return matrix == 3; // far-top-right
+    }
+
+    return false;
+}
+
+bool Plateau::hasPendingPromotion() const {
+    return pendingPromotion;
+}
+
+sf::Vector2i Plateau::getPendingPromotionCell() const {
+    return pendingPromotionCell;
+}
+
+void Plateau::promotePawnAt(sf::Vector2i cell, PieceType newType) {
+    const std::size_t index = pieceAt(cell);
+    if (index == pieces.size()) {
+        return;
+    }
+
+    Piece& piece = pieces[index];
+    if (!piece.isAlive() || piece.getType() != PieceType::Pawn) {
+        return;
+    }
+
+    // Only allow promotion if we previously requested it for this cell/player
+    if (!pendingPromotion || piece.getOwner() != pendingPromotionOwner || piece.getCell() != pendingPromotionCell) {
+        return;
+    }
+
+    piece.setType(newType);
+    pendingPromotion = false;
+    if (debugLoggingEnabled) {
+        std::cout << "[Plateau] Promotion finalizee en " << static_cast<int>(newType)
+                  << " pour le joueur " << static_cast<int>(piece.getOwner()) << "\n";
+    }
+    notifyObservers(PlateauEvent{PlateauEventType::PromotionPlayed, piece.getCell(), piece.getCell(), piece.getOwner()});
+}
+
 std::size_t Plateau::playerIndex(PlayerId player) {
     switch (player) {
         case PlayerId::Red:
@@ -403,11 +487,39 @@ bool Plateau::hasAnyLegalMoveForPlayer(PlayerId player) const {
     return false;
 }
 
+void Plateau::promotePawnIfNeeded(std::size_t pieceIndex) {
+    if (pieceIndex >= pieces.size()) {
+        return;
+    }
+
+    Piece& piece = pieces[pieceIndex];
+    if (!piece.isAlive() || piece.getType() != PieceType::Pawn) {
+        return;
+    }
+
+    if (!isPromotionZone(piece.getOwner(), piece.getCell())) {
+        return;
+    }
+
+    // Request a promotion choice from the UI instead of auto-promoting.
+    pendingPromotion = true;
+    pendingPromotionCell = piece.getCell();
+    pendingPromotionOwner = piece.getOwner();
+    if (debugLoggingEnabled) {
+        std::cout << "[Plateau] Promotion demandee pour le joueur " << static_cast<int>(piece.getOwner()) << " a la case ("
+                  << piece.getCell().x << "," << piece.getCell().y << ")\n";
+    }
+    notifyObservers(PlateauEvent{PlateauEventType::PromotionRequested, piece.getCell(), piece.getCell(), piece.getOwner()});
+}
+
 void Plateau::eliminatePlayer(PlayerId player) {
     if (isPlayerEliminated(player)) {
         return;
     }
 
+    if (debugLoggingEnabled) {
+        std::cout << "[Plateau] Elimination du joueur " << static_cast<int>(player) << "\n";
+    }
     eliminatedPlayers[playerIndex(player)] = true;
     for (auto& piece : pieces) {
         if (piece.getOwner() == player) {
@@ -587,6 +699,8 @@ bool Plateau::tryMoveSelectedPiece(sf::Vector2i destination) {
         pieces[selectedIndex].setEnPassantEligible(true);
     }
 
+    promotePawnIfNeeded(selectedIndex);
+
     notifyObservers(PlateauEvent{PlateauEventType::MovePlayed, startCell, destination, currentPlayer});
 
     clearSelection();
@@ -657,14 +771,23 @@ void Plateau::debugSetCurrentPlayer(PlayerId owner) {
 
 void Plateau::advanceTurn() {
     currentPlayer = nextPlayer(currentPlayer);
+    if (debugLoggingEnabled) {
+        std::cout << "[Plateau] Avance tour vers joueur " << static_cast<int>(currentPlayer) << "\n";
+    }
 
     for (int inspected = 0; inspected < 3; ++inspected) {
         if (isPlayerEliminated(currentPlayer)) {
+            if (debugLoggingEnabled) {
+                std::cout << "[Plateau] Joueur " << static_cast<int>(currentPlayer) << " deja elimine\n";
+            }
             currentPlayer = nextPlayer(currentPlayer);
             continue;
         }
 
         if (!hasAnyAlivePiece(currentPlayer)) {
+            if (debugLoggingEnabled) {
+                std::cout << "[Plateau] Joueur " << static_cast<int>(currentPlayer) << " n'a plus de pieces\n";
+            }
             eliminatePlayer(currentPlayer);
             notifyObservers(PlateauEvent{PlateauEventType::PlayerEliminated, std::nullopt, std::nullopt, currentPlayer});
             currentPlayer = nextPlayer(currentPlayer);
@@ -672,6 +795,9 @@ void Plateau::advanceTurn() {
         }
 
         if (isCheckmate(currentPlayer)) {
+            if (debugLoggingEnabled) {
+                std::cout << "[Plateau] Joueur " << static_cast<int>(currentPlayer) << " est echec et mat\n";
+            }
             notifyObservers(PlateauEvent{PlateauEventType::Checkmate, std::nullopt, std::nullopt, currentPlayer});
             eliminatePlayer(currentPlayer);
             notifyObservers(PlateauEvent{PlateauEventType::PlayerEliminated, std::nullopt, std::nullopt, currentPlayer});
@@ -680,6 +806,9 @@ void Plateau::advanceTurn() {
         }
 
         if (!hasAnyLegalMoveForPlayer(currentPlayer)) {
+            if (debugLoggingEnabled) {
+                std::cout << "[Plateau] Joueur " << static_cast<int>(currentPlayer) << " n'a aucun coup legal\n";
+            }
             eliminatePlayer(currentPlayer);
             notifyObservers(PlateauEvent{PlateauEventType::PlayerEliminated, std::nullopt, std::nullopt, currentPlayer});
             currentPlayer = nextPlayer(currentPlayer);
@@ -689,10 +818,18 @@ void Plateau::advanceTurn() {
         break;
     }
 
-    if (alivePlayerCount() <= 1) {
+    const int aliveCount = alivePlayerCount();
+    if (debugLoggingEnabled) {
+        std::cout << "[Plateau] Joueurs vivants: " << aliveCount << "\n";
+    }
+    
+    if (aliveCount <= 1) {
         setGameOverState();
         const auto winner = singleRemainingPlayer();
         if (winner.has_value()) {
+            if (debugLoggingEnabled) {
+                std::cout << "[Plateau] PARTIE TERMINEE: Vainqueur = " << static_cast<int>(*winner) << "\n";
+            }
             notifyObservers(PlateauEvent{PlateauEventType::WinnerDeclared, std::nullopt, std::nullopt, *winner});
         }
         return;
@@ -701,6 +838,9 @@ void Plateau::advanceTurn() {
     notifyObservers(PlateauEvent{PlateauEventType::TurnChanged, std::nullopt, std::nullopt, currentPlayer});
 
     if (isKingInCheck(currentPlayer)) {
+        if (debugLoggingEnabled) {
+            std::cout << "[Plateau] Joueur " << static_cast<int>(currentPlayer) << " est en echec\n";
+        }
         notifyObservers(PlateauEvent{PlateauEventType::Check, std::nullopt, std::nullopt, currentPlayer});
     }
 }

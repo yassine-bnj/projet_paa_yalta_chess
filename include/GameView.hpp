@@ -14,6 +14,8 @@ public:
 
     void render(sf::RenderWindow& window);
     void onPlateauEvent(const PlateauEvent& event) override;
+    // Returns true if the event was consumed (used for promotion UI)
+    bool handlePromotionEvent(const sf::Event& ev, sf::RenderWindow& window);
 
 private:
     Plateau& plateau;
@@ -22,6 +24,7 @@ private:
     bool gameOver = false;
     std::string statusPrefix;
     bool modelDirty = true;
+    std::vector<sf::FloatRect> promotionButtons;
 
     void updateTurnText(PlayerId player);
 };
