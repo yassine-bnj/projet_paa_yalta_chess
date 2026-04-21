@@ -24,11 +24,13 @@ public:
     PieceType getType() const;
     PlayerId getOwner() const;
     sf::Vector2i getCell() const;
+    char getLabel() const;
     bool isAlive() const;
     bool hasMoved() const;
     bool isEnPassantEligible() const;
 
     void setCell(sf::Vector2i cell, sf::Vector2f position);
+    void setType(PieceType pieceType);
     void setAlive(bool alive);
     void setHasMoved(bool moved);
     void setEnPassantEligible(bool eligible);
