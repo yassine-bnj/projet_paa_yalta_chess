@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <functional>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -102,6 +103,81 @@ Plateau makeBoard(const std::function<void(Plateau&)>& setup) {
     board.debugSetCurrentPlayer(PlayerId::White);
     setup(board);
     return board;
+}
+
+std::string playerToString(PlayerId player) {
+    switch (player) {
+        case PlayerId::White:
+            return "White";
+        case PlayerId::Red:
+            return "Red";
+        case PlayerId::Black:
+            return "Black";
+    }
+    return "Unknown";
+}
+
+PlayerId nextPlayer(PlayerId player) {
+    switch (player) {
+        case PlayerId::Red:
+            return PlayerId::White;
+        case PlayerId::White:
+            return PlayerId::Black;
+        case PlayerId::Black:
+            return PlayerId::Red;
+    }
+    return PlayerId::Red;
+}
+
+bool isPromotionZoneFor(PlayerId owner, const sf::Vector2i& cell) {
+    (void)owner;
+    return cell.x == 0 || cell.x == 7 || cell.x == 11;
+}
+
+std::optional<Plateau::Move> findPromotionTriggerMove(PlayerId owner) {
+    for (int x = 0; x < 12; ++x) {
+        for (int y = 0; y < 12; ++y) {
+            const sf::Vector2i start{x, y};
+            Plateau board = makeBoard([&](Plateau& b) {
+                b.debugSetCurrentPlayer(owner);
+                b.debugAddPiece(PieceType::Pawn, owner, start, true, false);
+            });
+
+            const auto moves = board.debugLegalMovesForCell(start);
+            for (const auto& destination : moves) {
+                if (isPromotionZoneFor(owner, destination)) {
+                    Plateau probe = board;
+                    if (probe.applyMove({start, destination})) {
+                        return Plateau::Move{start, destination};
+                    }
+                }
+            }
+        }
+    }
+    return std::nullopt;
+}
+
+std::optional<Plateau::Move> findNonPromotionMove(PlayerId owner) {
+    for (int x = 0; x < 12; ++x) {
+        for (int y = 0; y < 12; ++y) {
+            const sf::Vector2i start{x, y};
+            Plateau board = makeBoard([&](Plateau& b) {
+                b.debugSetCurrentPlayer(owner);
+                b.debugAddPiece(PieceType::Pawn, owner, start, true, false);
+            });
+
+            const auto moves = board.debugLegalMovesForCell(start);
+            for (const auto& destination : moves) {
+                if (!isPromotionZoneFor(owner, destination)) {
+                    Plateau probe = board;
+                    if (probe.applyMove({start, destination})) {
+                        return Plateau::Move{start, destination};
+                    }
+                }
+            }
+        }
+    }
+    return std::nullopt;
 }
 }
 
@@ -247,11 +323,11 @@ int main() {
 
     std::cout << "\n--- Promotion scenario ---\n";
     Plateau promotionScenario = makeBoard([](Plateau& board) {
-        board.debugAddPiece(PieceType::Pawn, PlayerId::White, {7, 8}, true, false);
+        board.debugAddPiece(PieceType::Pawn, PlayerId::White, {10, 11}, true, false);
     });
-    const auto promotionMoves = promotionScenario.debugLegalMovesForCell({7, 8});
+    const auto promotionMoves = promotionScenario.debugLegalMovesForCell({10, 11});
     std::cout << "INFO promotion legal moves: " << movesToString(promotionMoves) << '\n';
-    const bool promotionMoveOk = promotionScenario.applyMove({{7, 8}, {8, 8}});
+    const bool promotionMoveOk = promotionScenario.applyMove({{10, 11}, {11, 11}});
     std::cout << (promotionMoveOk ? "PASS " : "FAIL ") << "Promotion move to target square\n";
     std::cout << "INFO pendingPromotion=" << (promotionScenario.hasPendingPromotion() ? "true" : "false")
               << " cell=" << cellToString(promotionScenario.getPendingPromotionCell()) << '\n';
@@ -259,6 +335,96 @@ int main() {
         Plateau finalized = promotionScenario;
         finalized.promotePawnAt(finalized.getPendingPromotionCell(), PieceType::Queen);
         std::cout << "INFO promotion finalized on copied board\n";
+    }
+
+    std::cout << "\n--- Promotion turn sequencing ---\n";
+    Plateau promotionTurnBoard = makeBoard([](Plateau& board) {
+        board.debugSetCurrentPlayer(PlayerId::White);
+        board.debugAddPiece(PieceType::Pawn, PlayerId::White, {6, 0}, true, false);
+        board.debugAddPiece(PieceType::Pawn, PlayerId::Red, {1, 4}, true, false);
+        board.debugAddPiece(PieceType::Pawn, PlayerId::Black, {4, 0}, true, false);
+    });
+    const bool promoMoveApplied = promotionTurnBoard.applyMove({{6, 0}, {7, 0}});
+    const bool waitingPromotion = promotionTurnBoard.hasPendingPromotion() &&
+                                  promotionTurnBoard.getCurrentPlayer() == PlayerId::White;
+    std::cout << ((promoMoveApplied && waitingPromotion) ? "PASS " : "FAIL ")
+              << "Promotion keeps same player before choice"
+              << " | pending=" << (promotionTurnBoard.hasPendingPromotion() ? "true" : "false")
+              << " | player=" << playerToString(promotionTurnBoard.getCurrentPlayer()) << '\n';
+
+    promotionTurnBoard.promotePawnAt({7, 0}, PieceType::Queen);
+    const bool turnAdvancedToBlack = !promotionTurnBoard.hasPendingPromotion() &&
+                                     promotionTurnBoard.getCurrentPlayer() == PlayerId::Black;
+    std::cout << (turnAdvancedToBlack ? "PASS " : "FAIL ")
+              << "Promotion advances turn after choice"
+              << " | pending=" << (promotionTurnBoard.hasPendingPromotion() ? "true" : "false")
+              << " | player=" << playerToString(promotionTurnBoard.getCurrentPlayer()) << '\n';
+
+    std::cout << "\n--- Promotion coverage (all players) ---\n";
+    for (const PlayerId owner : {PlayerId::White, PlayerId::Red, PlayerId::Black}) {
+        const auto maybePromotionMove = findPromotionTriggerMove(owner);
+        if (!maybePromotionMove.has_value()) {
+            std::cout << "FAIL Promotion trigger move " << playerToString(owner)
+                      << " | unable to find any legal move ending in promotion zone\n";
+            continue;
+        }
+
+        Plateau board = makeBoard([&](Plateau& b) {
+            b.debugSetCurrentPlayer(owner);
+            b.debugAddPiece(PieceType::Pawn, owner, maybePromotionMove->from, true, false);
+        });
+
+        const bool moved = board.applyMove(*maybePromotionMove);
+        const bool pendingAtExpectedCell = board.hasPendingPromotion() &&
+                                           board.getPendingPromotionCell() == maybePromotionMove->to;
+        const bool turnNotAdvancedYet = board.getCurrentPlayer() == owner;
+
+        std::cout << ((moved && pendingAtExpectedCell && turnNotAdvancedYet) ? "PASS " : "FAIL ")
+                  << "Promotion trigger " << playerToString(owner)
+                  << " | move=" << cellToString(maybePromotionMove->from)
+                  << "->" << cellToString(maybePromotionMove->to)
+                  << " | pending=" << (board.hasPendingPromotion() ? "true" : "false")
+                  << " | player=" << playerToString(board.getCurrentPlayer()) << '\n';
+
+        board.promotePawnAt(maybePromotionMove->from, PieceType::Queen);
+        const bool wrongCellRejected = board.hasPendingPromotion();
+        std::cout << (wrongCellRejected ? "PASS " : "FAIL ")
+                  << "Promotion reject wrong cell " << playerToString(owner)
+                  << " | wrongCell=" << cellToString(maybePromotionMove->from) << '\n';
+
+        board.promotePawnAt(maybePromotionMove->to, PieceType::Queen);
+        const bool promotionResolved = !board.hasPendingPromotion();
+        const bool turnAdvancedAfterPromotion = board.getCurrentPlayer() != owner || board.isGameOver();
+        std::cout << ((promotionResolved && turnAdvancedAfterPromotion) ? "PASS " : "FAIL ")
+                  << "Promotion finalize and advance " << playerToString(owner)
+              << " | playerAfter=" << playerToString(board.getCurrentPlayer())
+              << " | gameOver=" << (board.isGameOver() ? "true" : "false") << '\n';
+    }
+
+    std::cout << "\n--- Non-promotion pawn moves ---\n";
+    for (const PlayerId owner : {PlayerId::White, PlayerId::Red, PlayerId::Black}) {
+        const auto maybeNonPromotionMove = findNonPromotionMove(owner);
+        if (!maybeNonPromotionMove.has_value()) {
+            std::cout << "FAIL Non-promotion move " << playerToString(owner)
+                      << " | unable to find any legal non-promotion pawn move\n";
+            continue;
+        }
+
+        Plateau board = makeBoard([&](Plateau& b) {
+            b.debugSetCurrentPlayer(owner);
+            b.debugAddPiece(PieceType::Pawn, owner, maybeNonPromotionMove->from, true, false);
+        });
+
+        const bool moved = board.applyMove(*maybeNonPromotionMove);
+        const bool noPendingPromotion = !board.hasPendingPromotion();
+        const bool turnAdvanced = board.getCurrentPlayer() != owner || board.isGameOver();
+
+        std::cout << ((moved && noPendingPromotion && turnAdvanced) ? "PASS " : "FAIL ")
+                  << "No promotion outside zone " << playerToString(owner)
+                  << " | move=" << cellToString(maybeNonPromotionMove->from)
+                  << "->" << cellToString(maybeNonPromotionMove->to)
+                  << " | pending=" << (board.hasPendingPromotion() ? "true" : "false")
+                  << " | player=" << playerToString(board.getCurrentPlayer()) << '\n';
     }
 
     for (int x = 0; x < 12; ++x) {

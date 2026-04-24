@@ -201,6 +201,13 @@ void Plateau::draw(sf::RenderTarget& target) const {
 }
 
 void Plateau::handleClick(sf::Vector2f position) {
+    if (debugLoggingEnabled) {
+        const sf::Vector2i hoveredCell = pixelToCell(position);
+        std::cout << "[Plateau] clic pixel=(" << position.x << "," << position.y << ")"
+                  << " cellule=(" << hoveredCell.x << "," << hoveredCell.y << ")"
+                  << " joueur=" << static_cast<int>(currentPlayer) << "\n";
+    }
+
     if (interactionState) {
         interactionState->handleClick(*this, position);
     }
@@ -386,20 +393,12 @@ bool Plateau::isCaptureMoveForPiece(std::size_t pieceIndex, sf::Vector2i destina
 }
 
 bool Plateau::isPromotionZone(PlayerId owner, sf::Vector2i cell) const {
-    const int matrix = determineSubMatrix(cell.x, cell.y);
-    // Restrict promotion to the farthest ring matrix for each player to avoid
-    // promoting while still in the opponent's intermediate matrix.
-    switch (owner) {
-        case PlayerId::White:
-            return matrix == 6; // far-right bottom
-        case PlayerId::Red:
-            return matrix == 1; // far-left top
-        case PlayerId::Black:
-            return matrix == 3; // far-top-right
-    }
-
-    return false;
+    (void)owner;
+    // Keep compatibility with legacy MVC logic: promotion when a pawn reaches
+    // one of the edge columns used as promotion borders.
+    return cell.x == 0 || cell.x == 7 || cell.x == 11;
 }
+
 
 bool Plateau::hasPendingPromotion() const {
     return pendingPromotion;
@@ -428,10 +427,14 @@ void Plateau::promotePawnAt(sf::Vector2i cell, PieceType newType) {
     piece.setType(newType);
     pendingPromotion = false;
     if (debugLoggingEnabled) {
-        std::cout << "[Plateau] Promotion finalizee en " << static_cast<int>(newType)
-                  << " pour le joueur " << static_cast<int>(piece.getOwner()) << "\n";
+        std::cout << "[Plateau] Promotion choisie sur (" << cell.x << "," << cell.y << ")"
+                  << " -> type=" << static_cast<int>(newType)
+                  << " joueur=" << static_cast<int>(piece.getOwner()) << "\n";
     }
     notifyObservers(PlateauEvent{PlateauEventType::PromotionPlayed, piece.getCell(), piece.getCell(), piece.getOwner()});
+    
+    // Now the promotion is finalized, so advance the turn
+    advanceTurn();
 }
 
 std::size_t Plateau::playerIndex(PlayerId player) {
@@ -493,6 +496,7 @@ void Plateau::promotePawnIfNeeded(std::size_t pieceIndex) {
     }
 
     Piece& piece = pieces[pieceIndex];
+
     if (!piece.isAlive() || piece.getType() != PieceType::Pawn) {
         return;
     }
@@ -501,15 +505,18 @@ void Plateau::promotePawnIfNeeded(std::size_t pieceIndex) {
         return;
     }
 
-    // Request a promotion choice from the UI instead of auto-promoting.
     pendingPromotion = true;
     pendingPromotionCell = piece.getCell();
     pendingPromotionOwner = piece.getOwner();
+
     if (debugLoggingEnabled) {
-        std::cout << "[Plateau] Promotion demandee pour le joueur " << static_cast<int>(piece.getOwner()) << " a la case ("
-                  << piece.getCell().x << "," << piece.getCell().y << ")\n";
+        std::cout << "[Plateau] Promotion demandee pour " << debugPieceSummaryForCell(piece.getCell())
+                  << " sur (" << piece.getCell().x << "," << piece.getCell().y << ")"
+                  << " joueur=" << static_cast<int>(piece.getOwner()) << "\n";
     }
-    notifyObservers(PlateauEvent{PlateauEventType::PromotionRequested, piece.getCell(), piece.getCell(), piece.getOwner()});
+
+    notifyObservers(PlateauEvent{PlateauEventType::PromotionRequested,
+                                 piece.getCell(), piece.getCell(), piece.getOwner()});
 }
 
 void Plateau::eliminatePlayer(PlayerId player) {
@@ -677,6 +684,12 @@ bool Plateau::tryMoveSelectedPiece(sf::Vector2i destination) {
     const std::size_t selectedIndex = *selectedPieceIndex;
     const sf::Vector2i startCell = pieces[selectedIndex].getCell();
 
+    if (debugLoggingEnabled) {
+        std::cout << "[Plateau] tentative coup " << debugPieceSummaryForCell(startCell)
+                  << " de (" << startCell.x << "," << startCell.y << ") vers ("
+                  << destination.x << "," << destination.y << ")\n";
+    }
+
     if (std::find(legalMoves.begin(), legalMoves.end(), destination) == legalMoves.end()) {
         notifyObservers(PlateauEvent{PlateauEventType::InvalidMove, startCell, destination, currentPlayer});
         return false;
@@ -770,6 +783,14 @@ void Plateau::debugSetCurrentPlayer(PlayerId owner) {
 }
 
 void Plateau::advanceTurn() {
+    // Don't advance if a promotion is pending - wait for it to be finalized
+    if (pendingPromotion) {
+        if (debugLoggingEnabled) {
+            std::cout << "[Plateau] advanceTurn: promotion en attente, ne pas avancer le tour\n";
+        }
+        return;
+    }
+
     currentPlayer = nextPlayer(currentPlayer);
     if (debugLoggingEnabled) {
         std::cout << "[Plateau] Avance tour vers joueur " << static_cast<int>(currentPlayer) << "\n";
