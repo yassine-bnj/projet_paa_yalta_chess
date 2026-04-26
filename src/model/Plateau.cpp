@@ -56,7 +56,10 @@ Plateau::Plateau(const Plateau& other)
       selectedPieceIndex(other.selectedPieceIndex),
       legalMoves(other.legalMoves),
       currentPlayer(other.currentPlayer),
-      eliminatedPlayers(other.eliminatedPlayers) {
+            eliminatedPlayers(other.eliminatedPlayers),
+            pendingPromotion(other.pendingPromotion),
+            pendingPromotionCell(other.pendingPromotionCell),
+            pendingPromotionOwner(other.pendingPromotionOwner) {
     if (other.alivePlayerCount() <= 1) {
         setGameOverState();
     } else if (other.selectedPieceIndex.has_value()) {
@@ -78,6 +81,9 @@ Plateau& Plateau::operator=(const Plateau& other) {
     legalMoves = other.legalMoves;
     currentPlayer = other.currentPlayer;
     eliminatedPlayers = other.eliminatedPlayers;
+    pendingPromotion = other.pendingPromotion;
+    pendingPromotionCell = other.pendingPromotionCell;
+    pendingPromotionOwner = other.pendingPromotionOwner;
     observers.clear();
 
     if (other.alivePlayerCount() <= 1) {
@@ -766,6 +772,9 @@ bool Plateau::isEnemy(sf::Vector2i cell, PlayerId owner) const {
 void Plateau::debugClearPieces() {
     pieces.clear();
     clearSelection();
+    pendingPromotion = false;
+    pendingPromotionCell = {-1, -1};
+    pendingPromotionOwner = PlayerId::Red;
     notifyObservers(PlateauEvent{PlateauEventType::BoardReset, std::nullopt, std::nullopt, currentPlayer});
 }
 

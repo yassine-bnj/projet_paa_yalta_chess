@@ -12,7 +12,7 @@ StartupMenu::StartupMenu()
     : selectedMode(Mode::HumanVsAi),
       readyToStart(false) {
     if (!font.openFromFile("C:/Windows/Fonts/arial.ttf")) {
-        std::cerr << "[Menu] Impossible de charger la police d'accueil\n";
+                std::cout << "[Menu] Impossible de charger la police d'accueil\n";
     }
 
     titleText.emplace(font, "YaltaChess", 42);

@@ -4,10 +4,26 @@
 #include <array>
 #include <future>
 #include <limits>
+#include <random>
 #include <vector>
 
 namespace {
 using ScoreVector = std::array<int, 3>;
+
+class PlateauLogGuard {
+public:
+    explicit PlateauLogGuard(bool enabled)
+        : previous(Plateau::isDebugLoggingEnabled()) {
+        Plateau::setDebugLoggingEnabled(enabled);
+    }
+
+    ~PlateauLogGuard() {
+        Plateau::setDebugLoggingEnabled(previous);
+    }
+
+private:
+    bool previous;
+};
 
 int playerToIndex(PlayerId player) {
     switch (player) {
@@ -93,7 +109,7 @@ ScoreVector evaluateBoard(const Plateau& board) {
 }
 
 ScoreVector maxNSearch(const Plateau& board, int depth, PlayerId rootPlayer) {
-    if (depth <= 0 || board.isGameOver()) {
+    if (depth <= 0 || board.isGameOver() || board.hasPendingPromotion()) {
         return evaluateBoard(board);
     }
 
@@ -109,6 +125,7 @@ ScoreVector maxNSearch(const Plateau& board, int depth, PlayerId rootPlayer) {
     ScoreVector bestScore{0, 0, 0};
 
     for (const auto& move : legalMoves) {
+        PlateauLogGuard logGuard(false);
         Plateau nextBoard = board;
         if (!nextBoard.applyMove(move)) {
             continue;
@@ -137,7 +154,7 @@ MinMaxAI::MinMaxAI(AISearchConfig searchConfig)
 }
 
 std::optional<Plateau::Move> MinMaxAI::chooseMove(const Plateau& board, PlayerId player) const {
-    if (board.getCurrentPlayer() != player || board.isGameOver()) {
+    if (board.getCurrentPlayer() != player || board.isGameOver() || board.hasPendingPromotion()) {
         return std::nullopt;
     }
 
@@ -149,54 +166,87 @@ std::optional<Plateau::Move> MinMaxAI::chooseMove(const Plateau& board, PlayerId
     const int rootIndex = playerToIndex(player);
     const int depth = std::max(1, config.maxDepth);
 
+    static std::mt19937 rng(std::random_device{}());
+    std::uniform_real_distribution<double> dist(0.0, 1.0);
+
     bool hasBest = false;
     Plateau::Move bestMove = legalMoves.front();
     ScoreVector bestScore{0, 0, 0};
+    int bestRandomTie = 0;
 
-    if (config.parallelRoot && legalMoves.size() > 1) {
+    const bool useParallelRoot = config.parallelRoot && legalMoves.size() > 1 && legalMoves.size() <= 12;
+    if (useParallelRoot) {
         std::vector<std::future<std::optional<ScoreVector>>> tasks;
         tasks.reserve(legalMoves.size());
 
-        for (const auto& move : legalMoves) {
-            tasks.emplace_back(std::async(std::launch::async, [board, move, depth, player]() -> std::optional<ScoreVector> {
-                Plateau nextBoard = board;
-                if (!nextBoard.applyMove(move)) {
-                    return std::nullopt;
+        try {
+            for (const auto& move : legalMoves) {
+                tasks.emplace_back(std::async(std::launch::async, [board, move, depth, player]() -> std::optional<ScoreVector> {
+                    try {
+                        PlateauLogGuard logGuard(false);
+                        Plateau nextBoard = board;
+                        if (!nextBoard.applyMove(move)) {
+                            return std::nullopt;
+                        }
+
+                        return maxNSearch(nextBoard, depth - 1, player);
+                    } catch (const std::exception& ex) {
+                        return std::nullopt;
+                    } catch (...) {
+                        return std::nullopt;
+                    }
+                }));
+            }
+
+            for (std::size_t i = 0; i < legalMoves.size(); ++i) {
+                const auto scoreOpt = tasks[i].get();
+                if (!scoreOpt.has_value()) {
+                    continue;
                 }
 
-                return maxNSearch(nextBoard, depth - 1, player);
-            }));
-        }
-
-        for (std::size_t i = 0; i < legalMoves.size(); ++i) {
-            const auto scoreOpt = tasks[i].get();
-            if (!scoreOpt.has_value()) {
-                continue;
+                const ScoreVector& score = *scoreOpt;
+                const int randomTie = static_cast<int>(dist(rng) * 1000);
+                if (!hasBest ||
+                    score[rootIndex] > bestScore[rootIndex] ||
+                    (score[rootIndex] == bestScore[rootIndex] && rootUtility(score, player) > rootUtility(bestScore, player)) ||
+                    (score[rootIndex] == bestScore[rootIndex] && rootUtility(score, player) == rootUtility(bestScore, player) && randomTie > bestRandomTie)) {
+                    bestMove = legalMoves[i];
+                    bestScore = score;
+                    bestRandomTie = randomTie;
+                    hasBest = true;
+                }
             }
-
-            const ScoreVector& score = *scoreOpt;
-            if (!hasBest ||
-                score[rootIndex] > bestScore[rootIndex] ||
-                (score[rootIndex] == bestScore[rootIndex] && rootUtility(score, player) > rootUtility(bestScore, player))) {
-                bestMove = legalMoves[i];
-                bestScore = score;
-                hasBest = true;
-            }
+        } catch (const std::exception&) {
+            hasBest = false;
+        } catch (...) {
+            hasBest = false;
         }
-    } else {
+    }
+
+    if (!hasBest) {
         for (const auto& move : legalMoves) {
-            Plateau nextBoard = board;
-            if (!nextBoard.applyMove(move)) {
-                continue;
-            }
+            try {
+                PlateauLogGuard logGuard(false);
+                Plateau nextBoard = board;
+                if (!nextBoard.applyMove(move)) {
+                    continue;
+                }
 
-            const ScoreVector score = maxNSearch(nextBoard, depth - 1, player);
-            if (!hasBest ||
-                score[rootIndex] > bestScore[rootIndex] ||
-                (score[rootIndex] == bestScore[rootIndex] && rootUtility(score, player) > rootUtility(bestScore, player))) {
-                bestMove = move;
-                bestScore = score;
-                hasBest = true;
+                const ScoreVector score = maxNSearch(nextBoard, depth - 1, player);
+                const int randomTie = static_cast<int>(dist(rng) * 1000);
+                if (!hasBest ||
+                    score[rootIndex] > bestScore[rootIndex] ||
+                    (score[rootIndex] == bestScore[rootIndex] && rootUtility(score, player) > rootUtility(bestScore, player)) ||
+                    (score[rootIndex] == bestScore[rootIndex] && rootUtility(score, player) == rootUtility(bestScore, player) && randomTie > bestRandomTie)) {
+                    bestMove = move;
+                    bestScore = score;
+                    bestRandomTie = randomTie;
+                    hasBest = true;
+                }
+            } catch (const std::exception&) {
+                continue;
+            } catch (...) {
+                continue;
             }
         }
     }

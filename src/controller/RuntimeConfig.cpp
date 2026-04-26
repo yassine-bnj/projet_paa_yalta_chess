@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -64,12 +65,37 @@ bool parseInt(const std::string& value, int& out) {
 }
 }
 
+std::string findConfigFile(const std::string& filename) {
+    namespace fs = std::filesystem;
+    
+    // Try current directory first
+    if (fs::exists(filename)) {
+        return filename;
+    }
+    
+    // Try parent directory (for running from build-mingw2)
+    fs::path parent = fs::current_path().parent_path() / filename;
+    if (fs::exists(parent)) {
+        return parent.string();
+    }
+    
+    // Try two levels up (for running from build-mingw2/Debug or similar)
+    fs::path twoUp = fs::current_path().parent_path().parent_path() / filename;
+    if (fs::exists(twoUp)) {
+        return twoUp.string();
+    }
+    
+    // Return original filename if not found (will trigger default values message)
+    return filename;
+}
+
 RuntimeConfig loadRuntimeConfig(const std::string& filePath) {
     RuntimeConfig config;
 
-    std::ifstream input(filePath);
+    const std::string actualPath = findConfigFile(filePath);
+    std::ifstream input(actualPath);
     if (!input) {
-        std::cout << "[Config] Fichier introuvable: " << filePath
+        std::cout << "[Config] Fichier introuvable: " << actualPath
                   << " | valeurs par defaut utilisees.\n";
         return config;
     }

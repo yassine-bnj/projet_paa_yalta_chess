@@ -21,8 +21,10 @@ private:
     Plateau& plateau;
     sf::Font hudFont;
     std::optional<sf::Text> turnText;
+    std::optional<sf::Text> eventText;
     bool gameOver = false;
     std::string statusPrefix;
+    std::string statusMessage;
     bool modelDirty = true;
     std::vector<sf::FloatRect> promotionButtons;
 

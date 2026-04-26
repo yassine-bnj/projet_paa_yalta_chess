@@ -1,10 +1,36 @@
 #include "Plateau.hpp"
 
 #include <algorithm>
+#include <cstdint>
+#include <unordered_set>
 
 #include "MovementStrategy.hpp"
 
+namespace {
+thread_local std::unordered_set<std::uint64_t> recursiveMoveGuard;
+
+std::uint64_t makeRecursiveMoveKey(int xStart, int yStart, int xMove, int yMove) {
+    const std::uint64_t sx = static_cast<std::uint64_t>(static_cast<std::uint32_t>(xStart) & 0xFFFFu);
+    const std::uint64_t sy = static_cast<std::uint64_t>(static_cast<std::uint32_t>(yStart) & 0xFFFFu);
+    const std::uint64_t mx = static_cast<std::uint64_t>(static_cast<std::uint32_t>(xMove) & 0xFFFFu);
+    const std::uint64_t my = static_cast<std::uint64_t>(static_cast<std::uint32_t>(yMove) & 0xFFFFu);
+    return (sx << 48) | (sy << 32) | (mx << 16) | my;
+}
+}
+
 void Plateau::recursiveMove(int xStart, int yStart, int xMove, int yMove, int side, std::vector<sf::Vector2i>& possibleMoves) const {
+    const std::uint64_t guardKey = makeRecursiveMoveKey(xStart, yStart, xMove, yMove);
+    if (!recursiveMoveGuard.insert(guardKey).second) {
+        return;
+    }
+
+    struct GuardCleanup {
+        std::uint64_t key;
+        ~GuardCleanup() {
+            recursiveMoveGuard.erase(key);
+        }
+    } cleanup{guardKey};
+
     int xDestination = xStart + xMove;
     int yDestination = yStart + yMove;
 

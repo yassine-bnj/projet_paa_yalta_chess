@@ -23,6 +23,9 @@ GameView::GameView(Plateau& plateauRef)
         turnText.emplace(hudFont, "", 24);
         turnText->setFillColor(sf::Color(245, 245, 245));
         turnText->setPosition(sf::Vector2f(24.f, 14.f));
+        eventText.emplace(hudFont, "", 18);
+        eventText->setFillColor(sf::Color(255, 220, 140));
+        eventText->setPosition(sf::Vector2f(24.f, 40.f));
         updateTurnText(plateau.getCurrentPlayer());
     }
     plateau.addObserver(this);
@@ -39,7 +42,9 @@ void GameView::onPlateauEvent(const PlateauEvent& event) {
         case PlateauEventType::TurnChanged:
             if (!gameOver) {
                 updateTurnText(event.currentPlayer);
-                statusPrefix.clear();
+                if (!plateau.hasPendingPromotion() && eventText.has_value()) {
+                    eventText->setString("");
+                }
             }
             break;
         case PlateauEventType::Check:
@@ -66,6 +71,10 @@ void GameView::onPlateauEvent(const PlateauEvent& event) {
                 eventMessage = "Capture! " + playerToFrench(event.currentPlayer) + " prend une piece.";
             }
             break;
+        case PlateauEventType::PromotionRequested:
+            eventMessage = "Promotion! Choisissez la piece a la fin du tour.";
+            statusPrefix = "Promotion: ";
+            break;
         case PlateauEventType::PromotionPlayed:
             eventMessage = "Promotion! " + playerToFrench(event.currentPlayer) + " transforme un pion en reine.";
             break;
@@ -76,10 +85,10 @@ void GameView::onPlateauEvent(const PlateauEvent& event) {
             break;
     }
 
-    if (!eventMessage.empty()) {
-        std::cout << "[" << playerToFrench(event.currentPlayer) << "] " << eventMessage << '\n';
+    if (eventText.has_value()) {
+        eventText->setString(eventMessage);
     }
-    
+
     modelDirty = true;
 }
 
@@ -90,14 +99,14 @@ void GameView::updateTurnText(PlayerId player) {
 }
 
 void GameView::render(sf::RenderWindow& window) {
-    if (!modelDirty) {
+    if (!modelDirty && !plateau.hasPendingPromotion()) {
         return;
     }
 
     window.clear(sf::Color(33, 37, 41));
     plateau.draw(window);
 
-    sf::RectangleShape hudBackground(sf::Vector2f(330.f, 48.f));
+    sf::RectangleShape hudBackground(sf::Vector2f(420.f, 66.f));
     hudBackground.setPosition(sf::Vector2f(12.f, 8.f));
     if (gameOver) {
         hudBackground.setFillColor(sf::Color(90, 25, 25, 205));
@@ -109,6 +118,9 @@ void GameView::render(sf::RenderWindow& window) {
     if (turnText.has_value()) {
         window.draw(hudBackground);
         window.draw(*turnText);
+    }
+    if (eventText.has_value() && !eventText->getString().isEmpty()) {
+        window.draw(*eventText);
     }
 
     // If a promotion is pending, render a modal choice overlay
@@ -188,6 +200,7 @@ bool GameView::handlePromotionEvent(const sf::Event& ev, sf::RenderWindow& windo
                 case 2: chosen = PieceType::Bishop; break;
                 default: chosen = PieceType::Knight; break;
             }
+            std::cout << "[GameView] Promotion choice: button=" << i << " type=" << static_cast<int>(chosen) << "\n";
             plateau.promotePawnAt(target, chosen);
             modelDirty = true;
             promotionButtons.clear();
