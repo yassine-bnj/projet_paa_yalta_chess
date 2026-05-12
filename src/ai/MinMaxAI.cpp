@@ -2,9 +2,9 @@
 
 #include <algorithm>
 #include <array>
-#include <future>
 #include <limits>
 #include <random>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -176,35 +176,43 @@ std::optional<Plateau::Move> MinMaxAI::chooseMove(const Plateau& board, PlayerId
 
     const bool useParallelRoot = config.parallelRoot && legalMoves.size() > 1 && legalMoves.size() <= 12;
     if (useParallelRoot) {
-        std::vector<std::future<std::optional<ScoreVector>>> tasks;
-        tasks.reserve(legalMoves.size());
+        std::vector<std::thread> threads;
+        std::vector<std::optional<ScoreVector>> results(legalMoves.size());
 
         try {
-            for (const auto& move : legalMoves) {
-                tasks.emplace_back(std::async(std::launch::async, [board, move, depth, player]() -> std::optional<ScoreVector> {
+            // Lancer un thread pour chaque coup légal
+            for (std::size_t i = 0; i < legalMoves.size(); ++i) {
+                threads.emplace_back([&board, &legalMoves, &results, i, depth, player]() {
                     try {
+                        const auto& move = legalMoves[i];
                         PlateauLogGuard logGuard(false);
                         Plateau nextBoard = board;
                         if (!nextBoard.applyMove(move)) {
-                            return std::nullopt;
+                            results[i] = std::nullopt;
+                            return;
                         }
 
-                        return maxNSearch(nextBoard, depth - 1, player);
-                    } catch (const std::exception& ex) {
-                        return std::nullopt;
+                        results[i] = maxNSearch(nextBoard, depth - 1, player);
+                    } catch (const std::exception&) {
+                        results[i] = std::nullopt;
                     } catch (...) {
-                        return std::nullopt;
+                        results[i] = std::nullopt;
                     }
-                }));
+                });
             }
 
+            // Joindre tous les threads
+            for (auto& thread : threads) {
+                thread.join();
+            }
+
+            // Traiter les résultats
             for (std::size_t i = 0; i < legalMoves.size(); ++i) {
-                const auto scoreOpt = tasks[i].get();
-                if (!scoreOpt.has_value()) {
+                if (!results[i].has_value()) {
                     continue;
                 }
 
-                const ScoreVector& score = *scoreOpt;
+                const ScoreVector& score = *results[i];
                 const int randomTie = static_cast<int>(dist(rng) * 1000);
                 if (!hasBest ||
                     score[rootIndex] > bestScore[rootIndex] ||
