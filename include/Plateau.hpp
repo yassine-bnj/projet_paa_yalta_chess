@@ -40,15 +40,10 @@ public:
     const std::vector<Piece>& getPieces() const;
     bool isKingInCheck(PlayerId player) const;
     bool isCheckmate(PlayerId player) const;
-    std::vector<sf::Vector2i> debugLegalMovesForCell(sf::Vector2i cell) const;
-    std::string debugPieceSummaryForCell(sf::Vector2i cell) const;
-    std::vector<std::string> debugColorConflicts() const;
-    bool debugIsCaptureMoveForPiece(std::size_t pieceIndex, sf::Vector2i destination) const;
+    // Test/debug helpers removed for presentation build
     void addObserver(IPlateauObserver* observer);
     void removeObserver(IPlateauObserver* observer);
-    void debugClearPieces();
-    void debugAddPiece(PieceType type, PlayerId owner, sf::Vector2i cell, bool moved = false, bool enPassant = false);
-    void debugSetCurrentPlayer(PlayerId owner);
+    // Test/debug helpers removed for presentation build
 
     // Promotion API: check and finalize pending promotion choices
     bool hasPendingPromotion() const;

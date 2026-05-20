@@ -516,8 +516,7 @@ void Plateau::promotePawnIfNeeded(std::size_t pieceIndex) {
     pendingPromotionOwner = piece.getOwner();
 
     if (debugLoggingEnabled) {
-        std::cout << "[Plateau] Promotion demandee pour " << debugPieceSummaryForCell(piece.getCell())
-                  << " sur (" << piece.getCell().x << "," << piece.getCell().y << ")"
+        std::cout << "[Plateau] Promotion demandee pour piece@(" << piece.getCell().x << "," << piece.getCell().y << ")"
                   << " joueur=" << static_cast<int>(piece.getOwner()) << "\n";
     }
 
@@ -569,105 +568,7 @@ std::optional<PlayerId> Plateau::singleRemainingPlayer() const {
     return remaining;
 }
 
-std::vector<sf::Vector2i> Plateau::debugLegalMovesForCell(sf::Vector2i cell) const {
-    const auto index = pieceAt(cell);
-    if (index == pieces.size()) {
-        return {};
-    }
-
-    return getLegalMovesForPiece(index);
-}
-
-std::string Plateau::debugPieceSummaryForCell(sf::Vector2i cell) const {
-    const auto index = pieceAt(cell);
-    if (index == pieces.size()) {
-        return {};
-    }
-
-    const Piece& piece = pieces[index];
-    std::string owner;
-    switch (piece.getOwner()) {
-        case PlayerId::White:
-            owner = "White";
-            break;
-        case PlayerId::Red:
-            owner = "Red";
-            break;
-        case PlayerId::Black:
-            owner = "Black";
-            break;
-    }
-
-    std::string type;
-    switch (piece.getType()) {
-        case PieceType::Pawn:
-            type = "Pawn";
-            break;
-        case PieceType::Rook:
-            type = "Rook";
-            break;
-        case PieceType::Knight:
-            type = "Knight";
-            break;
-        case PieceType::Bishop:
-            type = "Bishop";
-            break;
-        case PieceType::Queen:
-            type = "Queen";
-            break;
-        case PieceType::King:
-            type = "King";
-            break;
-    }
-
-    return owner + " " + type;
-}
-
-std::vector<std::string> Plateau::debugColorConflicts() const {
-    std::vector<std::string> conflicts;
-    if (cells.size() != cellCoords.size()) {
-        conflicts.push_back("Internal mismatch: cells.size != cellCoords.size");
-        return conflicts;
-    }
-
-    float meanY = 0.f;
-    for (const auto& cell : cells) {
-        meanY += cell.getCenter().y;
-    }
-    meanY /= static_cast<float>(cells.size());
-
-    for (std::size_t i = 0; i < cells.size(); ++i) {
-        const auto pi = cells[i].getWorldPoints();
-        const sf::Color ci = cells[i].getFillColor();
-
-        for (std::size_t j = i + 1; j < cells.size(); ++j) {
-            const auto pj = cells[j].getWorldPoints();
-            if (!shareEdge(pi, pj)) {
-                continue;
-            }
-
-            const sf::Color cj = cells[j].getFillColor();
-            if (ci.r == cj.r && ci.g == cj.g && ci.b == cj.b) {
-                const sf::Vector2f c1 = cells[i].getCenter();
-                const sf::Vector2f c2 = cells[j].getCenter();
-                const bool top = c1.y < meanY && c2.y < meanY;
-                const std::string tag = top ? "[TOP] " : "";
-                conflicts.push_back(
-                    tag + "same-color neighbors " +
-                    "A(" + std::to_string(cellCoords[i].x) + "," + std::to_string(cellCoords[i].y) + ") " +
-                    "B(" + std::to_string(cellCoords[j].x) + "," + std::to_string(cellCoords[j].y) + ") " +
-                    "color=" + colorToString(ci)
-                );
-            }
-        }
-    }
-
-    return conflicts;
-}
-
-bool Plateau::debugIsCaptureMoveForPiece(std::size_t pieceIndex, sf::Vector2i destination) const {
-    return isCaptureMoveForPiece(pieceIndex, destination);
-}
+// Test/debug helpers removed for presentation build
 
 void Plateau::clearSelection() {
     selectedPieceIndex.reset();
@@ -691,7 +592,7 @@ bool Plateau::tryMoveSelectedPiece(sf::Vector2i destination) {
     const sf::Vector2i startCell = pieces[selectedIndex].getCell();
 
     if (debugLoggingEnabled) {
-        std::cout << "[Plateau] tentative coup " << debugPieceSummaryForCell(startCell)
+        std::cout << "[Plateau] tentative coup piece@(" << startCell.x << "," << startCell.y << ")"
                   << " de (" << startCell.x << "," << startCell.y << ") vers ("
                   << destination.x << "," << destination.y << ")\n";
     }
@@ -769,27 +670,7 @@ bool Plateau::isEnemy(sf::Vector2i cell, PlayerId owner) const {
     return index != pieces.size() && pieces[index].getOwner() != owner;
 }
 
-void Plateau::debugClearPieces() {
-    pieces.clear();
-    clearSelection();
-    pendingPromotion = false;
-    pendingPromotionCell = {-1, -1};
-    pendingPromotionOwner = PlayerId::Red;
-    notifyObservers(PlateauEvent{PlateauEventType::BoardReset, std::nullopt, std::nullopt, currentPlayer});
-}
-
-void Plateau::debugAddPiece(PieceType type, PlayerId owner, sf::Vector2i cell, bool moved, bool enPassant) {
-    const sf::Color color = ownerColor(owner);
-    const float radius = hexRadius * 0.50f;
-    pieces.emplace_back(type, owner, cell, cellCenter(cell), radius, color);
-    pieces.back().setHasMoved(moved);
-    pieces.back().setEnPassantEligible(enPassant);
-}
-
-void Plateau::debugSetCurrentPlayer(PlayerId owner) {
-    currentPlayer = owner;
-    notifyObservers(PlateauEvent{PlateauEventType::TurnChanged, std::nullopt, std::nullopt, currentPlayer});
-}
+// Test/debug helpers removed for presentation build
 
 void Plateau::advanceTurn() {
     // Don't advance if a promotion is pending - wait for it to be finalized
